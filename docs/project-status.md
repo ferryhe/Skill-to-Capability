@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap is complete. The project currently contains architecture, security model, API/VSCode/MCP contracts, JSON schemas, an example capability manifest, and a placeholder example skill.
+Repository bootstrap, roadmap definition, and the Contract Freeze baseline are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap is complete. The project currently contains architecture, s
 
 **Milestone A: Contract Freeze**
 
-The next implementation work should turn the written contracts into executable validation fixtures and schema checks.
+This milestone now has a usable baseline for schema, fixture, and manifest validation.
 
 ## Completed
 
@@ -23,26 +23,34 @@ The next implementation work should turn the written contracts into executable v
 - Added initial JSON schemas.
 - Added example `backend-rbac-review` capability manifest.
 - Added full development roadmap.
+- Merged PR #1: full development roadmap and project status tracker.
+- Added contract fixtures and `scripts/validate-contracts.py` for local validation.
+
+## Milestone Baseline
+
+- Valid/invalid contract fixtures live under `tests/contracts/fixtures/`.
+- `scripts/validate-contracts.py` validates schemas, fixtures, and example capability manifests.
+- Private skill leakage checks remain covered through invalid fixtures.
 
 ## Next PRs
 
-1. **PR A1: Schema and fixture validation**
-   - Add `tests/contracts/fixtures/*`.
-   - Add `scripts/validate-contracts.py`.
-   - Verify valid/invalid capability and run-result examples.
-
-2. **PR A2: Contract docs alignment**
+1. **PR A2: Contract docs alignment**
    - Ensure docs and schemas use identical field names.
    - Make every JSON example parseable.
 
-3. **PR B1: Gateway skeleton**
+2. **PR B1: Gateway skeleton**
    - Add FastAPI app, `/health`, and pytest setup.
+
+3. **PR B2: Capability manifest registry**
+   - Add manifest model, YAML loader, public view stripping, and `/v1/capabilities` endpoints.
 
 ## Verification Baseline
 
-Current docs/schema baseline:
+Available docs/schema baseline:
 
 ```bash
+python3 -m pip install -r requirements-dev.txt
+python3 scripts/validate-contracts.py
 python3 -m json.tool schemas/capability.schema.json >/dev/null
 python3 -m json.tool schemas/run-request.schema.json >/dev/null
 python3 -m json.tool schemas/run-result.schema.json >/dev/null

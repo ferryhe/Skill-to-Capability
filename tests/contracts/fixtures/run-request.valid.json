@@ -1,0 +1,29 @@
+{
+  "workspace": {
+    "name": "sample-workspace",
+    "root_uri": "file:///workspace/sample-workspace",
+    "git_branch": "feat/rbac-tightening",
+    "git_diff": "diff --git a/app.py b/app.py\n",
+    "files": [
+      {
+        "path": "app.py",
+        "content": "def hello():\n    return 'world'\n"
+      }
+    ],
+    "selection": {
+      "path": "app.py",
+      "start_line": 1,
+      "end_line": 2,
+      "content": "def hello():\n    return 'world'\n"
+    }
+  },
+  "instruction": "Review public payload and RBAC boundaries.",
+  "options": {
+    "return_patch": true,
+    "strictness": "high"
+  },
+  "client": {
+    "type": "test",
+    "version": "0.1.0"
+  }
+}

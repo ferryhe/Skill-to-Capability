@@ -1,0 +1,57 @@
+id: backend-rbac-review
+name: Backend RBAC Review
+version: 0.1.0
+category: code-review
+visible_description: Review backend RBAC and public API payload boundaries.
+input_modes:
+  - current_file
+  - selected_files
+  - git_diff
+input_schema:
+  type: object
+  required:
+    - instruction
+  properties:
+    instruction:
+      type: string
+      maxLength: 4000
+output_schema:
+  type: object
+  required:
+    - summary
+  properties:
+    summary:
+      type: string
+    findings:
+      type: array
+    patch:
+      type:
+        - string
+        - "null"
+    recommended_tests:
+      type: array
+      items:
+        type: string
+client_permissions:
+  reads_workspace: true
+  writes_workspace: optional
+  runs_commands: never
+  sends_code_to_server: true
+approval_policy:
+  upload_context: user_confirm_large
+  apply_patch: user_confirm
+  run_commands: never
+security:
+  max_files: 20
+  max_total_input_bytes: 300000
+  deny_file_globs:
+    - "**/.env"
+    - "**/*.pem"
+    - "**/*.key"
+    - "**/id_rsa"
+    - "**/credentials.json"
+internal:
+  skill_ref: backend-rbac-review
+  runner: mock
+  model_policy: default
+  expose_skill_text: false
