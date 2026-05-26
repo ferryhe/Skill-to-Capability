@@ -79,8 +79,8 @@ Gateway PR：
 ```bash
 cd gateway
 python -m pytest tests/ -q
-python -m ruff check . || true
-python -m mypy app || true
+python -m ruff check .
+python -m mypy app
 ```
 
 VSCode Extension PR：
