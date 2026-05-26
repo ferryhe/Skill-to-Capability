@@ -68,6 +68,8 @@ sync main
 文档/Schema PR：
 
 ```bash
+python3 -m pip install -r requirements-dev.txt
+python3 scripts/validate-contracts.py
 python3 -m json.tool schemas/capability.schema.json >/dev/null
 python3 -m json.tool schemas/run-request.schema.json >/dev/null
 python3 -m json.tool schemas/run-result.schema.json >/dev/null

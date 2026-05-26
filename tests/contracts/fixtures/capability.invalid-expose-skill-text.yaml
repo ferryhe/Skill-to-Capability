@@ -1,0 +1,22 @@
+id: leaky-skill
+name: Leaky Skill
+version: 0.1.0
+visible_description: Invalid manifest that tries to expose private skill text.
+input_modes:
+  - current_file
+input_schema:
+  type: object
+output_schema:
+  type: object
+client_permissions:
+  reads_workspace: true
+  writes_workspace: never
+  runs_commands: never
+  sends_code_to_server: true
+approval_policy:
+  apply_patch: never
+  run_commands: never
+internal:
+  skill_ref: leaky-skill
+  runner: mock
+  expose_skill_text: true

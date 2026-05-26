@@ -1,0 +1,4 @@
+{
+  "summary": "This invalid result leaks private internals.",
+  "prompt": "PRIVATE SYSTEM PROMPT SHOULD NOT BE RETURNED"
+}

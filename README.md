@@ -42,6 +42,13 @@ skill-capability-platform/
 SKILL.md -> capability manifest -> gateway run -> VSCode report -> patch apply -> MCP run
 ```
 
+## 本地验证
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 scripts/validate-contracts.py
+```
+
 ## 文档入口
 
 - [总体架构](docs/architecture.md)
