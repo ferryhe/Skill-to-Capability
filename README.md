@@ -51,6 +51,8 @@ SKILL.md -> capability manifest -> gateway run -> VSCode report -> patch apply -
 - [VSCode Extension Contract](docs/vscode-extension.md)
 - [MCP Adapter Contract](docs/mcp-adapter.md)
 - [开发计划](docs/plans/skill-capability-platform.md)
+- [全量开发推进路线图](docs/development-roadmap.md)
+- [项目状态](docs/project-status.md)
 
 ## MVP 成功标准
 
