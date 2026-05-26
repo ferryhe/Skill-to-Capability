@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ferryhe.github.io/skill-to-capability/schemas/run-result.schema.json",
+  "title": "Capability Run Result",
+  "type": "object",
+  "required": ["summary"],
+  "properties": {
+    "summary": {"type": "string"},
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {"enum": ["info", "low", "medium", "high", "critical"]},
+          "path": {"type": "string"},
+          "line": {"type": "integer", "minimum": 1},
+          "title": {"type": "string"},
+          "message": {"type": "string"}
+        },
+        "additionalProperties": true
+      }
+    },
+    "patch": {"type": ["string", "null"]},
+    "recommended_tests": {"type": "array", "items": {"type": "string"}},
+    "artifacts": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "safe_rationale": {"type": "string"},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1}
+  },
+  "additionalProperties": false
+}

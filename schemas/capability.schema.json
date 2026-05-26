@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ferryhe.github.io/skill-to-capability/schemas/capability.schema.json",
+  "title": "Capability Manifest",
+  "type": "object",
+  "required": ["id", "name", "version", "visible_description", "input_modes", "input_schema", "output_schema", "client_permissions", "approval_policy", "internal"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,80}$"},
+    "name": {"type": "string", "minLength": 1},
+    "version": {"type": "string"},
+    "category": {"type": "string"},
+    "visible_description": {"type": "string", "minLength": 1},
+    "input_modes": {
+      "type": "array",
+      "items": {"enum": ["current_file", "selected_files", "git_diff", "workspace_snapshot", "selection", "manual_input"]},
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "input_schema": {"type": "object"},
+    "output_schema": {"type": "object"},
+    "client_permissions": {
+      "type": "object",
+      "required": ["reads_workspace", "writes_workspace", "runs_commands", "sends_code_to_server"],
+      "properties": {
+        "reads_workspace": {"type": "boolean"},
+        "writes_workspace": {"oneOf": [{"type": "boolean"}, {"enum": ["never", "optional", "required"]}]},
+        "runs_commands": {"oneOf": [{"type": "boolean"}, {"enum": ["never", "optional", "required"]}]},
+        "sends_code_to_server": {"type": "boolean"}
+      },
+      "additionalProperties": false
+    },
+    "approval_policy": {
+      "type": "object",
+      "properties": {
+        "upload_context": {"enum": ["auto", "user_confirm", "user_confirm_large"]},
+        "apply_patch": {"enum": ["never", "auto", "user_confirm"]},
+        "run_commands": {"enum": ["never", "auto", "user_confirm"]}
+      },
+      "additionalProperties": true
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "max_files": {"type": "integer", "minimum": 1},
+        "max_total_input_bytes": {"type": "integer", "minimum": 1},
+        "deny_file_globs": {"type": "array", "items": {"type": "string"}},
+        "allow_file_globs": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "internal": {
+      "description": "Server-only. Must never be returned to VSCode/MCP clients.",
+      "type": "object",
+      "required": ["skill_ref", "runner", "expose_skill_text"],
+      "properties": {
+        "skill_ref": {"type": "string"},
+        "runner": {"enum": ["mock", "hermes", "subprocess", "container"]},
+        "model_policy": {"type": "string"},
+        "required_env": {"type": "array", "items": {"type": "string"}},
+        "required_commands": {"type": "array", "items": {"type": "string"}},
+        "expose_skill_text": {"const": false}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

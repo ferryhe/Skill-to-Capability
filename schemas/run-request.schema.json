@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ferryhe.github.io/skill-to-capability/schemas/run-request.schema.json",
+  "title": "Capability Run Request",
+  "type": "object",
+  "required": ["instruction"],
+  "properties": {
+    "workspace": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "root_uri": {"type": "string"},
+        "git_branch": {"type": "string"},
+        "git_diff": {"type": "string"},
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "content"],
+            "properties": {
+              "path": {"type": "string"},
+              "content": {"type": "string"},
+              "sha256": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        },
+        "selection": {
+          "type": "object",
+          "required": ["path", "content"],
+          "properties": {
+            "path": {"type": "string"},
+            "start_line": {"type": "integer", "minimum": 1},
+            "end_line": {"type": "integer", "minimum": 1},
+            "content": {"type": "string"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "instruction": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "options": {"type": "object", "additionalProperties": true},
+    "client": {
+      "type": "object",
+      "properties": {
+        "type": {"enum": ["vscode", "mcp", "cli", "web", "test"]},
+        "version": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
