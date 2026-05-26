@@ -32,10 +32,13 @@ SCHEMA_FILES = {
     "run-result": SCHEMA_DIR / "run-result.schema.json",
 }
 
-INVALID_REASON_EXPECTATIONS = {
-    "expose-skill-text": ["internal/expose_skill_text", "False was expected"],
-    "prompt-leak": ["prompt", "Additional properties are not allowed"],
-}
+def validation_error_matches_reason(reason: str, error: jsonschema.ValidationError) -> bool:
+    error_path = list(error.path)
+    if reason == "expose-skill-text":
+        return error.validator == "const" and error_path == ["internal", "expose_skill_text"]
+    if reason == "prompt-leak":
+        return error.validator == "additionalProperties" and error_path == [] and "prompt" in error.message
+    raise ValueError(f"No expected validation matcher configured for invalid fixture reason {reason!r}")
 
 
 def load_document(path: Path) -> Any:
@@ -83,22 +86,22 @@ def invalid_reason(path: Path) -> str | None:
     return path.name.split(marker, 1)[1].rsplit(".", 1)[0]
 
 
-def invalid_fixture_matches_reason(path: Path, errors: list[str]) -> bool:
+def invalid_fixture_matches_reason(path: Path, errors: list[jsonschema.ValidationError]) -> bool:
     reason = invalid_reason(path)
     if not reason:
         return False
-    expected_fragments = INVALID_REASON_EXPECTATIONS.get(reason)
-    if expected_fragments is None:
-        raise ValueError(
-            f"No expected validation fragments configured for invalid fixture reason {reason!r} in {path}"
-        )
-    combined_errors = "\n".join(errors)
-    return all(fragment in combined_errors for fragment in expected_fragments)
+    try:
+        return any(validation_error_matches_reason(reason, error) for error in errors)
+    except ValueError as exc:
+        raise ValueError(f"{exc} in {path}") from exc
 
 
-def validate_document(schema: dict[str, Any], document: Any, path: Path) -> list[str]:
+def validate_document(schema: dict[str, Any], document: Any) -> list[jsonschema.ValidationError]:
     validator = jsonschema.Draft202012Validator(schema)
-    errors = sorted(validator.iter_errors(document), key=lambda error: list(error.path))
+    return sorted(validator.iter_errors(document), key=lambda error: list(error.path))
+
+
+def format_errors(path: Path, errors: list[jsonschema.ValidationError]) -> list[str]:
     return [format_error(path, error) for error in errors]
 
 
@@ -111,25 +114,26 @@ def validate_named_fixture(path: Path, schemas: dict[str, dict[str, Any]]) -> tu
     schema_name = schema_name_for_fixture(path)
     should_pass = expect_valid(path)
     document = load_document(path)
-    errors = validate_document(schemas[schema_name], document, path)
+    errors = validate_document(schemas[schema_name], document)
+    formatted_errors = format_errors(path, errors)
     if should_pass and errors:
-        return False, "expected valid but failed:\n" + "\n".join(errors)
+        return False, "expected valid but failed:\n" + "\n".join(formatted_errors)
     if not should_pass and not errors:
         return False, "expected invalid but passed"
     if not should_pass and not invalid_fixture_matches_reason(path, errors):
         return (
             False,
             "expected invalid fixture to fail for reason "
-            f"{invalid_reason(path)!r}, but got different errors:\n" + "\n".join(errors),
+            f"{invalid_reason(path)!r}, but got different errors:\n" + "\n".join(formatted_errors),
         )
     return True, "ok"
 
 
 def validate_example_capability(path: Path, schemas: dict[str, dict[str, Any]]) -> tuple[bool, str]:
     document = load_document(path)
-    errors = validate_document(schemas["capability"], document, path)
+    errors = validate_document(schemas["capability"], document)
     if errors:
-        return False, "example capability failed:\n" + "\n".join(errors)
+        return False, "example capability failed:\n" + "\n".join(format_errors(path, errors))
     return True, "ok"
 
 
