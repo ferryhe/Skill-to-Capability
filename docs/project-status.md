@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap and full roadmap are complete. Contract validation work is now in progress on a dedicated branch.
+Repository bootstrap, roadmap definition, and the Contract Freeze baseline are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap and full roadmap are complete. Contract validation work is 
 
 **Milestone A: Contract Freeze**
 
-The current task is **PR A1: Schema and fixture validation**.
+This milestone now has a usable baseline for schema, fixture, and manifest validation.
 
 ## Completed
 
@@ -24,19 +24,13 @@ The current task is **PR A1: Schema and fixture validation**.
 - Added example `backend-rbac-review` capability manifest.
 - Added full development roadmap.
 - Merged PR #1: full development roadmap and project status tracker.
+- Added contract fixtures and `scripts/validate-contracts.py` for local validation.
 
-## Current Branch
+## Milestone Baseline
 
-`feat/contract-fixtures-validator`
-
-## Current PR Scope
-
-**PR A1: Schema and fixture validation**
-
-- Add valid/invalid contract fixtures under `tests/contracts/fixtures/`.
-- Add `scripts/validate-contracts.py`.
-- Validate JSON schemas, fixtures, and example capability manifests.
-- Keep private skill leakage checks executable through invalid fixtures.
+- Valid/invalid contract fixtures live under `tests/contracts/fixtures/`.
+- `scripts/validate-contracts.py` validates schemas, fixtures, and example capability manifests.
+- Private skill leakage checks remain covered through invalid fixtures.
 
 ## Next PRs
 
@@ -52,7 +46,7 @@ The current task is **PR A1: Schema and fixture validation**.
 
 ## Verification Baseline
 
-Current docs/schema baseline:
+Available docs/schema baseline:
 
 ```bash
 python3 -m pip install -r requirements-dev.txt

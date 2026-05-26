@@ -14,6 +14,7 @@ validated as positive capability fixtures.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -37,8 +38,29 @@ def validation_error_matches_reason(reason: str, error: jsonschema.ValidationErr
     if reason == "expose-skill-text":
         return error.validator == "const" and error_path == ["internal", "expose_skill_text"]
     if reason == "prompt-leak":
-        return error.validator == "additionalProperties" and error_path == [] and "prompt" in error.message
+        return (
+            error.validator == "additionalProperties"
+            and error_path == []
+            and "prompt" in unexpected_properties(error)
+        )
     raise ValueError(f"No expected validation matcher configured for invalid fixture reason {reason!r}")
+
+
+def unexpected_properties(error: jsonschema.ValidationError) -> set[str]:
+    params = getattr(error, "params", None)
+    if isinstance(params, dict):
+        if isinstance(params.get("additionalProperty"), str):
+            return {params["additionalProperty"]}
+        additional_properties = params.get("additionalProperties")
+        if isinstance(additional_properties, list):
+            return {value for value in additional_properties if isinstance(value, str)}
+
+    if isinstance(error.instance, dict) and isinstance(error.schema, dict):
+        declared_properties = error.schema.get("properties", {})
+        if isinstance(declared_properties, dict):
+            return {key for key in error.instance if key not in declared_properties}
+
+    return set(re.findall(r"'([^']+)'", error.message))
 
 
 def load_document(path: Path) -> Any:
