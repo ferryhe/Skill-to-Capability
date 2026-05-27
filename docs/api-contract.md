@@ -36,6 +36,31 @@ prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。
           "instruction": {
             "type": "string",
             "maxLength": 4000
+          },
+          "files": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "object",
+              "required": ["path", "content"],
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string",
+                  "maxLength": 50000
+                }
+              }
+            }
+          },
+          "diff": {
+            "type": "string",
+            "maxLength": 200000
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true
           }
         }
       },
@@ -57,6 +82,21 @@ prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。
             "items": {
               "type": "string"
             }
+          },
+          "artifacts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "safe_rationale": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
           }
         }
       },
@@ -114,10 +154,75 @@ Endpoint response example:
   "visible_description": "Review backend RBAC and public API payload boundaries.",
   "input_modes": ["current_file", "selected_files", "git_diff"],
   "input_schema": {
-    "type": "object"
+    "type": "object",
+    "required": ["instruction"],
+    "properties": {
+      "instruction": {
+        "type": "string",
+        "maxLength": 4000
+      },
+      "files": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+          "type": "object",
+          "required": ["path", "content"],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string",
+              "maxLength": 50000
+            }
+          }
+        }
+      },
+      "diff": {
+        "type": "string",
+        "maxLength": 200000
+      },
+      "options": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
   },
   "output_schema": {
-    "type": "object"
+    "type": "object",
+    "required": ["summary"],
+    "properties": {
+      "summary": {
+        "type": "string"
+      },
+      "findings": {
+        "type": "array"
+      },
+      "patch": {
+        "type": ["string", "null"]
+      },
+      "recommended_tests": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "artifacts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "safe_rationale": {
+        "type": "string"
+      },
+      "confidence": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    }
   },
   "client_permissions": {
     "reads_workspace": true,
@@ -170,10 +275,66 @@ Gateway 内部保存的 full manifest 可以包含 server-only `internal` 字段
   "visible_description": "Review backend RBAC and public API payload boundaries.",
   "input_modes": ["current_file", "selected_files", "git_diff"],
   "input_schema": {
-    "type": "object"
+    "type": "object",
+    "required": ["instruction"],
+    "properties": {
+      "instruction": {
+        "type": "string",
+        "maxLength": 4000
+      },
+      "files": {
+        "type": "array",
+        "maxItems": 20,
+        "items": {
+          "type": "object",
+          "required": ["path", "content"],
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "content": {
+              "type": "string",
+              "maxLength": 50000
+            }
+          }
+        }
+      },
+      "diff": {
+        "type": "string",
+        "maxLength": 200000
+      },
+      "options": {
+        "type": "object",
+        "additionalProperties": true
+      }
+    }
   },
   "output_schema": {
-    "type": "object"
+    "type": "object",
+    "required": ["summary"],
+    "properties": {
+      "summary": {
+        "type": "string"
+      },
+      "findings": {
+        "type": "array"
+      },
+      "patch": {
+        "type": "string"
+      },
+      "recommended_tests": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "artifacts": {
+        "type": "array"
+      },
+      "safe_rationale": {
+        "type": "string"
+      }
+    }
   },
   "client_permissions": {
     "reads_workspace": true,
