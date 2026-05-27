@@ -14,6 +14,8 @@
   "activationEvents": [
     "onCommand:skillCapability.configureGateway",
     "onCommand:skillCapability.refreshCapabilities",
+    "onCommand:skillCapability.showCapabilityDetail",
+    "onView:skillCapability.capabilities",
     "onCommand:skillCapability.runCapability",
     "onCommand:skillCapability.runCurrentFile",
     "onCommand:skillCapability.runCurrentGitDiff",
@@ -30,6 +32,10 @@
       {
         "command": "skillCapability.refreshCapabilities",
         "title": "Skill Capability: Refresh Capabilities"
+      },
+      {
+        "command": "skillCapability.showCapabilityDetail",
+        "title": "Skill Capability: Show Capability Detail"
       },
       {
         "command": "skillCapability.runCapability",
@@ -83,11 +89,35 @@
           "description": "Maximum total bytes of workspace context to send in one request."
         }
       }
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "skillCapability.capabilities",
+          "name": "Skill Capabilities"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "skillCapability.refreshCapabilities",
+          "when": "view == skillCapability.capabilities",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "skillCapability.showCapabilityDetail",
+          "when": "view == skillCapability.capabilities && viewItem == skillCapability.capability",
+          "group": "inline"
+        }
+      ]
     }
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "test": "npm run compile && node --test out/test/client.test.js"
+    "test": "npm run compile && node --test out/test/client.test.js out/test/capabilityUi.test.js"
   },
   "devDependencies": {
     "@types/node": "20.12.12",

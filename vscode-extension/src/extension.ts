@@ -1,6 +1,7 @@
 import * as vscode from "vscode";
 
-import { GatewayClient, GatewayClientError } from "./api/client";
+import { capabilityTreeViewId, CapabilityTreeProvider } from "./capabilities/treeProvider";
+import { registerCapabilityCommands } from "./commands/refreshCapabilities";
 import { createGatewaySession, GatewaySession } from "./auth/session";
 
 const configurationSection = "skillCapability";
@@ -15,20 +16,21 @@ const placeholderCommands = [
 
 export function activate(context: vscode.ExtensionContext): void {
   const session = createGatewaySession(context);
+  const capabilityTreeProvider = new CapabilityTreeProvider();
 
   context.subscriptions.push(
+    capabilityTreeProvider,
+    vscode.window.registerTreeDataProvider(
+      capabilityTreeViewId,
+      capabilityTreeProvider,
+    ),
     vscode.commands.registerCommand(
       "skillCapability.configureGateway",
       () => configureGateway(session),
     ),
   );
 
-  context.subscriptions.push(
-    vscode.commands.registerCommand(
-      "skillCapability.refreshCapabilities",
-      () => refreshCapabilities(session),
-    ),
-  );
+  registerCapabilityCommands(context, session, capabilityTreeProvider);
 
   for (const [command, label] of placeholderCommands) {
     context.subscriptions.push(
@@ -123,34 +125,6 @@ async function configureGateway(session: GatewaySession): Promise<void> {
 
   await session.setToken(trimmedToken);
   vscode.window.showInformationMessage("Skill Gateway token saved.");
-}
-
-async function refreshCapabilities(session: GatewaySession): Promise<void> {
-  try {
-    const client = createGatewayClient(session);
-    const capabilities = await client.listCapabilities();
-    vscode.window.showInformationMessage(
-      `Loaded ${capabilities.length} Skill Gateway capabilities.`,
-    );
-  } catch (error) {
-    vscode.window.showErrorMessage(gatewayErrorMessage(error));
-  }
-}
-
-function createGatewayClient(session: GatewaySession): GatewayClient {
-  const configuration = vscode.workspace.getConfiguration(configurationSection);
-  return new GatewayClient({
-    gatewayUrl: configuration.get<string>("gatewayUrl", "http://localhost:8000"),
-    tenantId: configuration.get<string>("tenantId", "default"),
-    tokenProvider: () => session.getToken(),
-  });
-}
-
-function gatewayErrorMessage(error: unknown): string {
-  if (error instanceof GatewayClientError) {
-    return `Skill Gateway request failed: ${error.message}`;
-  }
-  return "Skill Gateway request failed.";
 }
 
 function showPlaceholder(label: string): Thenable<string | undefined> {
