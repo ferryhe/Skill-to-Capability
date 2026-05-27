@@ -9,7 +9,6 @@ from gateway.app.capabilities.registry import load_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GATEWAY_ROOT = Path(__file__).resolve().parents[1]
-EXAMPLE_MANIFEST = GATEWAY_ROOT / "capabilities" / "backend-rbac-review.yaml"
 BODY_ONLY_PHRASE = "PRIVATE CLI BODY THAT MUST NOT LEAK"
 PRIVATE_OUTPUT_MARKERS = (
     BODY_ONLY_PHRASE,
