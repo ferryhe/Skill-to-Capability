@@ -20,41 +20,51 @@ class HermesRunnerError(ValueError):
 
 
 def parse_runner_json_output(text: str) -> CapabilityRunResult:
-    parse_failed = False
-    try:
-        payload = json.loads(
-            text,
-            object_pairs_hook=_reject_duplicate_keys,
-            parse_constant=_reject_nonstandard_json_constant,
-        )
-    except (TypeError, ValueError):
-        parse_failed = True
-
-    if parse_failed:
+    payload, parse_failed = _load_json_payload(text)
+    if parse_failed or not isinstance(payload, Mapping):
         raise HermesRunnerError(INVALID_JSON_OUTPUT_MESSAGE)
 
-    if not isinstance(payload, Mapping):
+    result, validation_failed = _validate_capability_run_result(payload)
+    if validation_failed or result is None:
         raise HermesRunnerError(INVALID_JSON_OUTPUT_MESSAGE)
 
-    validation_failed = False
-    try:
-        result = CapabilityRunResult.model_validate(payload)
-    except ValidationError:
-        validation_failed = True
-
-    if validation_failed:
-        raise HermesRunnerError(INVALID_JSON_OUTPUT_MESSAGE)
-
-    filter_failed = False
-    try:
-        return filter_capability_run_result(result)
-    except OutputFilterViolation:
-        filter_failed = True
-
-    if filter_failed:
+    filtered_result, filter_failed = _filter_capability_run_result(result)
+    if filter_failed or filtered_result is None:
         raise HermesRunnerError(UNSAFE_OUTPUT_MESSAGE)
 
-    raise HermesRunnerError(INVALID_JSON_OUTPUT_MESSAGE)
+    return filtered_result
+
+
+def _load_json_payload(text: str) -> tuple[Any, bool]:
+    try:
+        return (
+            json.loads(
+                text,
+                object_pairs_hook=_reject_duplicate_keys,
+                parse_constant=_reject_nonstandard_json_constant,
+            ),
+            False,
+        )
+    except (TypeError, ValueError):
+        return None, True
+
+
+def _validate_capability_run_result(
+    payload: Mapping[str, Any],
+) -> tuple[CapabilityRunResult | None, bool]:
+    try:
+        return CapabilityRunResult.model_validate(payload), False
+    except ValidationError:
+        return None, True
+
+
+def _filter_capability_run_result(
+    result: CapabilityRunResult,
+) -> tuple[CapabilityRunResult | None, bool]:
+    try:
+        return filter_capability_run_result(result), False
+    except OutputFilterViolation:
+        return None, True
 
 
 def _reject_nonstandard_json_constant(value: str) -> Any:
