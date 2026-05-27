@@ -100,7 +100,7 @@ def test_unsupported_runner_error_uses_unified_error_shape(
     capability = backend_rbac_capability()
     unsupported = capability.model_copy(
         update={
-            "internal": capability.internal.model_copy(update={"runner": "hermes"}),
+            "internal": capability.internal.model_copy(update={"runner": "subprocess"}),
         }
     )
     monkeypatch.setattr(
