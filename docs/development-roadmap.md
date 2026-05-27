@@ -591,6 +591,8 @@ git diff --check
 
 ### PR E6：Recommended tests execution
 
+**状态：完成**
+
 **范围**
 - 展示 recommended tests。
 - 用户确认后在 VSCode terminal 执行。
@@ -602,6 +604,16 @@ vscode-extension/src/commands/runRecommendedTests.ts
 ```
 
 **验收**
+```bash
+cd vscode-extension
+npm run test:recommendedTests
+npm test
+cd ..
+python scripts/validate-contracts.py
+git diff --check
+```
+
+**完成标准**
 - 点击 test command 前有 confirm。
 - command 在 workspace root terminal 执行。
 
@@ -908,7 +920,7 @@ B2: Capability manifest registry
 ### 全项目 Done
 
 - [ ] Gateway 可本地启动并跑 mock + Hermes runner。
-- [ ] VSCode extension 可列 capability、收集上下文、展示 report、apply patch、运行 recommended tests。
+- [x] VSCode extension 可列 capability、收集上下文、展示 report、apply patch、运行 recommended tests。
 - [ ] MCP adapter 可被 Hermes/Cline 调用。
 - [ ] 安全测试覆盖 no skill leakage、prompt injection、path traversal、secret upload、error redaction。
 - [ ] CI 覆盖 schema/gateway/vscode/mcp。
@@ -923,7 +935,7 @@ B2: Capability manifest registry
 A1/A2 contracts
 B1-B5 Gateway mock MVP
 C1/C2 converter
-E1-E5 VSCode MVP
+E1-E6 VSCode MVP
 F1-F2 MCP MVP
 D1-D3 Hermes runner
 G security hardening
