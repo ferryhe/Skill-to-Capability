@@ -2,7 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from gateway.app.capabilities.registry import CapabilityRegistry, ManifestLoadError
+from gateway.app.capabilities.registry import (
+    CapabilityRegistry,
+    ManifestLoadError,
+    default_registry,
+)
+
+
+CAPABILITIES_DIR = Path(__file__).resolve().parents[1] / "capabilities"
 
 
 VALID_MANIFEST = """
@@ -51,7 +58,7 @@ def write_manifest(
 
 
 def test_registry_loads_manifest_and_returns_public_view_without_internal_fields() -> None:
-    registry = CapabilityRegistry.from_directory(Path("capabilities"))
+    registry = CapabilityRegistry.from_directory(CAPABILITIES_DIR)
 
     capability = registry.get("backend-rbac-review")
     public_view = capability.public_view()
@@ -65,7 +72,7 @@ def test_registry_loads_manifest_and_returns_public_view_without_internal_fields
 
 
 def test_registry_lists_public_capabilities() -> None:
-    registry = CapabilityRegistry.from_directory(Path("capabilities"))
+    registry = CapabilityRegistry.from_directory(CAPABILITIES_DIR)
 
     public_capabilities = registry.list_public()
 
@@ -117,3 +124,22 @@ def test_duplicate_input_modes_raise_manifest_load_error(tmp_path: Path) -> None
 
     with pytest.raises(ManifestLoadError, match="input_modes"):
         CapabilityRegistry.from_directory(tmp_path)
+
+
+def test_missing_manifest_directory_raises_clear_error(tmp_path: Path) -> None:
+    missing_dir = tmp_path / "does-not-exist"
+
+    with pytest.raises(ManifestLoadError, match="does not exist"):
+        CapabilityRegistry.from_directory(missing_dir)
+
+
+def test_empty_manifest_directory_raises_clear_error(tmp_path: Path) -> None:
+    with pytest.raises(ManifestLoadError, match="No capability manifests found"):
+        CapabilityRegistry.from_directory(tmp_path)
+
+
+def test_default_registry_returns_cached_registry() -> None:
+    first_registry = default_registry()
+    second_registry = default_registry()
+
+    assert first_registry is second_registry

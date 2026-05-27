@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -21,11 +22,18 @@ class CapabilityRegistry:
 
     @classmethod
     def from_directory(cls, directory: Path) -> "CapabilityRegistry":
-        manifests: list[CapabilityManifest] = []
-        for path in sorted(directory.glob("*.yaml")):
-            manifests.append(load_manifest(path))
-        for path in sorted(directory.glob("*.yml")):
-            manifests.append(load_manifest(path))
+        if not directory.exists():
+            raise ManifestLoadError(f"Capability manifest directory does not exist: {directory}")
+        if not directory.is_dir():
+            raise ManifestLoadError(f"Capability manifest path is not a directory: {directory}")
+
+        manifest_paths = sorted(
+            [*directory.glob("*.yaml"), *directory.glob("*.yml")]
+        )
+        if not manifest_paths:
+            raise ManifestLoadError(f"No capability manifests found in {directory}")
+
+        manifests = [load_manifest(path) for path in manifest_paths]
         return cls(manifests)
 
     def get(self, capability_id: str) -> CapabilityManifest:
@@ -57,6 +65,7 @@ def load_manifest(path: Path) -> CapabilityManifest:
         ) from exc
 
 
+@lru_cache(maxsize=1)
 def default_registry() -> CapabilityRegistry:
     capabilities_dir = Path(__file__).resolve().parents[3] / "capabilities"
     return CapabilityRegistry.from_directory(capabilities_dir)
