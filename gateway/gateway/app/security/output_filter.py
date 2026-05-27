@@ -15,13 +15,29 @@ PROHIBITED_OUTPUT_KEYS = {
     "internal",
     "skill_ref",
     "model_policy",
+    "provider",
     "raw_runner_output",
     "chain_of_thought",
+    "systemprompt",
+    "developerprompt",
+    "prompttext",
+    "tooltrace",
+    "skillbody",
+    "skilltext",
+    "skillref",
+    "modelprovider",
+    "modelpolicy",
+    "internalstate",
+    "providerinfo",
+    "rawrunneroutput",
+    "chainofthought",
 }
 
 _PROHIBITED_OUTPUT_KEY_PATTERNS = (
     re.compile(r"^(?:[a-z0-9]+_)*prompt(?:_[a-z0-9]+)*$"),
     re.compile(r"^(?:[a-z0-9]+_)*trace(?:_[a-z0-9]+)*$"),
+    re.compile(r"^(?:[a-z0-9]+_)*internal(?:_[a-z0-9]+)*$"),
+    re.compile(r"^(?:[a-z0-9]+_)*provider(?:_[a-z0-9]+)*$"),
     re.compile(r"^(?:[a-z0-9]+_)*skill_(?:body|text|ref)(?:_[a-z0-9]+)*$"),
     re.compile(r"^(?:[a-z0-9]+_)*chain_of_thought(?:_[a-z0-9]+)*$"),
     re.compile(r"^(?:[a-z0-9]+_)*raw_runner_output(?:_[a-z0-9]+)*$"),
@@ -90,6 +106,11 @@ def _reject_unsafe_output(value: Any) -> None:
     if isinstance(value, Iterable):
         raise OutputFilterViolation("unsupported_output_iterable")
 
+    if value is None or isinstance(value, (bool, int, float)):
+        return
+
+    raise OutputFilterViolation("unsupported_output_type")
+
 
 def _is_prohibited_key(key: Any) -> bool:
     if not isinstance(key, str):
@@ -107,7 +128,7 @@ def _key_contains_suspected_leakage(key: Any) -> bool:
 
 
 def _normalize_key(key: str) -> str:
-    separated = re.sub(r"[\s-]+", "_", key.strip())
+    separated = re.sub(r"[^A-Za-z0-9]+", "_", key.strip())
     separated = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", separated)
     separated = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", separated)
     separated = re.sub(r"_+", "_", separated)

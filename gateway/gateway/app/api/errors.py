@@ -14,6 +14,7 @@ from gateway.app.security.redaction import redact_sensitive_data
 
 
 _SAFE_ERROR_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+_SAFE_ERROR_HEADERS = {"www-authenticate", "retry-after", "allow"}
 
 
 def register_error_handlers(app: FastAPI) -> None:
@@ -51,7 +52,7 @@ async def http_exception_handler(
     return JSONResponse(
         status_code=exc.status_code,
         content=_error_content(code=code, message=message, details=details),
-        headers=getattr(exc, "headers", None),
+        headers=_safe_error_headers(getattr(exc, "headers", None)),
     )
 
 
@@ -144,6 +145,17 @@ def _normalize_error_code(code: str) -> str:
     if _SAFE_ERROR_CODE_PATTERN.fullmatch(code):
         return code
     return "http_error"
+
+
+def _safe_error_headers(headers: Mapping[str, Any] | None) -> dict[str, str] | None:
+    if not headers:
+        return None
+
+    safe_headers: dict[str, str] = {}
+    for name, value in headers.items():
+        if name.lower() in _SAFE_ERROR_HEADERS:
+            safe_headers[name] = str(redact_sensitive_data(str(value)))
+    return safe_headers or None
 
 
 def _default_error_code(status_code: int) -> str:

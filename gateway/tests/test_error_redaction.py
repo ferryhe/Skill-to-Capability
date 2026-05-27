@@ -208,6 +208,61 @@ def test_http_exception_handler_redacts_sensitive_detail_keys(
     assert error["details"]["[REDACTED_API_KEY]"] == "public api-key value"
 
 
+def test_http_exception_handler_drops_custom_headers_and_redacts_safe_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw_header_token = "raw-header-token"
+    raw_header_key = "sk-proj-headerleak123456"
+    raw_header_path = r"C:\Users\ferry\.codex\skills\secret\SKILL.md"
+
+    def raise_secret_header_error(_runner_name: str) -> None:
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "code": "runner_failed",
+                "message": "Safe public message.",
+                "details": {},
+            },
+            headers={
+                "WWW-Authenticate": (
+                    f'Bearer token="{raw_header_key}", '
+                    f'error_description="{raw_header_path}"'
+                ),
+                "Retry-After": "120",
+                "Allow": "GET, POST",
+                "X-Debug-Path": raw_header_path,
+                "X-Runner-Token": f"Authorization: Bearer {raw_header_token}",
+            },
+        )
+
+    monkeypatch.setattr(
+        capabilities_api,
+        "_runner_for_capability",
+        raise_secret_header_error,
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=valid_run_request(),
+    )
+
+    assert response.status_code == 401
+    assert "x-debug-path" not in response.headers
+    assert "x-runner-token" not in response.headers
+    assert response.headers["retry-after"] == "120"
+    assert response.headers["allow"] == "GET, POST"
+    assert "[REDACTED_API_KEY]" in response.headers["www-authenticate"]
+    assert "[REDACTED_PATH]" in response.headers["www-authenticate"]
+    assert_not_serialized(
+        dict(response.headers),
+        raw_header_token,
+        raw_header_key,
+        raw_header_path,
+        r"C:\Users\ferry",
+    )
+
+
 def test_http_exception_handler_normalizes_unsafe_error_code(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

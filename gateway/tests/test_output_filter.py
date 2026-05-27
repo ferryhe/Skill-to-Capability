@@ -1,4 +1,5 @@
 import json
+from dataclasses import dataclass
 from typing import Any
 
 import pytest
@@ -196,6 +197,29 @@ def test_output_filter_redacts_sensitive_mapping_keys_in_run_finding_extras() ->
         "developer-prompt",
         "tool-trace",
         "skill-body",
+        "provider",
+        "provider_info",
+        "modelProvider",
+        "internal_state",
+        "internalState",
+        "internal.state",
+        "model.provider",
+        "system.prompt",
+        "prompt:text",
+        "skill/body",
+        "internal[state]",
+        "model[provider]",
+        "system(prompt)",
+        "prompt;data",
+        "skill|body",
+        "systemprompt",
+        "developerprompt",
+        "prompttext",
+        "tooltrace",
+        "skillbody",
+        "modelprovider",
+        "internalstate",
+        "providerinfo",
     ],
 )
 def test_output_filter_rejects_private_fields_at_any_nested_level(
@@ -264,6 +288,35 @@ def test_output_filter_rejects_direct_leak_marker_keys(
 
     assert exc_info.value.code == "output_filter_violation"
     assert direct_leak_key not in str(exc_info.value)
+    assert "raw private value" not in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "private_key",
+    ["provider", "provider_info", "modelProvider", "internal_state", "internalState"],
+)
+def test_output_filter_rejects_provider_and_internal_variant_keys(
+    private_key: str,
+) -> None:
+    result = CapabilityRunResult(
+        summary="No public issues.",
+        findings=[
+            {
+                "severity": "low",
+                "title": "Private metadata",
+                "message": "Provider/internal metadata is not public output.",
+                private_key: f"raw private value for {private_key}",
+            }
+        ],
+        safe_rationale="Public rationale.",
+        confidence=0.5,
+    )
+
+    with pytest.raises(OutputFilterViolation) as exc_info:
+        filter_capability_run_result(result)
+
+    assert exc_info.value.code == "output_filter_violation"
+    assert private_key not in str(exc_info.value)
     assert "raw private value" not in str(exc_info.value)
 
 
@@ -401,6 +454,60 @@ def test_output_filter_rejects_nonstandard_iterables_before_model_coercion() -> 
     assert leaked_text not in str(exc_info.value)
 
 
+def test_output_filter_rejects_unsupported_object_leaf_in_run_finding_extra() -> None:
+    class SecretCarrier:
+        def __init__(self) -> None:
+            self.prompt = "internal system prompt: hidden"
+
+    result = CapabilityRunResult(
+        summary="No public issues.",
+        findings=[
+            {
+                "title": "Object leakage",
+                "message": "Arbitrary objects are not public JSON leaves.",
+                "metadata": SecretCarrier(),
+            }
+        ],
+        safe_rationale="Public rationale.",
+        confidence=0.5,
+    )
+
+    with pytest.raises(OutputFilterViolation) as exc_info:
+        filter_capability_run_result(result)
+
+    assert exc_info.value.code == "output_filter_violation"
+    assert "internal system prompt" not in str(exc_info.value)
+
+
+def test_output_filter_rejects_dataclass_leaf_in_run_finding_extra() -> None:
+    @dataclass(frozen=True)
+    class SecretDataclass:
+        prompt: str
+        provider: str
+
+    result = CapabilityRunResult(
+        summary="No public issues.",
+        findings=[
+            {
+                "title": "Dataclass leakage",
+                "message": "Dataclasses are not public JSON leaves.",
+                "metadata": SecretDataclass(
+                    prompt="internal system prompt: hidden",
+                    provider="private model provider",
+                ),
+            }
+        ],
+        safe_rationale="Public rationale.",
+        confidence=0.5,
+    )
+
+    with pytest.raises(OutputFilterViolation) as exc_info:
+        filter_capability_run_result(result)
+
+    assert exc_info.value.code == "output_filter_violation"
+    assert "internal system prompt" not in str(exc_info.value)
+
+
 def test_run_endpoint_redacts_malicious_runner_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -489,7 +596,32 @@ def test_run_endpoint_blocks_malicious_runner_prompt_leak(
 
 @pytest.mark.parametrize(
     "direct_leak_key",
-    ["systemPrompt", "toolTrace", "system-prompt", "skill-body"],
+    [
+        "systemPrompt",
+        "toolTrace",
+        "system-prompt",
+        "skill-body",
+        "provider_info",
+        "internalState",
+        "internal.state",
+        "model.provider",
+        "system.prompt",
+        "prompt:text",
+        "skill/body",
+        "internal[state]",
+        "model[provider]",
+        "system(prompt)",
+        "prompt;data",
+        "skill|body",
+        "systemprompt",
+        "developerprompt",
+        "prompttext",
+        "tooltrace",
+        "skillbody",
+        "modelprovider",
+        "internalstate",
+        "providerinfo",
+    ],
 )
 def test_run_endpoint_blocks_direct_leak_marker_values(
     monkeypatch: pytest.MonkeyPatch,
