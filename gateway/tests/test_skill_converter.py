@@ -116,6 +116,29 @@ def test_converter_output_validates_as_capability_manifest() -> None:
     assert "**/.env" in (manifest.security.deny_file_globs or [])
 
 
+def test_converter_uses_canonical_deny_file_globs_without_sharing_manifest_list() -> None:
+    converter = converter_module()
+    input_policy = importlib.import_module("gateway.app.security.input_policy")
+    marker_glob = "**/temporary-canonical-deny-marker"
+    next_marker_glob = "**/post-conversion-deny-marker"
+
+    input_policy.DEFAULT_DENY_FILE_GLOBS.append(marker_glob)
+    try:
+        manifest = as_manifest(converter.convert_skill_to_capability_manifest(valid_skill_text()))
+        deny_file_globs = manifest.security.deny_file_globs if manifest.security else None
+
+        assert deny_file_globs is not None
+        assert deny_file_globs == input_policy.DEFAULT_DENY_FILE_GLOBS
+        assert deny_file_globs is not input_policy.DEFAULT_DENY_FILE_GLOBS
+
+        input_policy.DEFAULT_DENY_FILE_GLOBS.append(next_marker_glob)
+        assert next_marker_glob not in deny_file_globs
+    finally:
+        input_policy.DEFAULT_DENY_FILE_GLOBS.remove(marker_glob)
+        if next_marker_glob in input_policy.DEFAULT_DENY_FILE_GLOBS:
+            input_policy.DEFAULT_DENY_FILE_GLOBS.remove(next_marker_glob)
+
+
 def test_converter_sets_internal_skill_ref_and_never_exposes_skill_text() -> None:
     converter = converter_module()
 

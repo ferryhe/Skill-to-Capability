@@ -2,19 +2,14 @@ import re
 from typing import Any
 
 from gateway.app.capabilities.manifest import CapabilityManifest
+from gateway.app.security.input_policy import (
+    DEFAULT_DENY_FILE_GLOBS as INPUT_POLICY_DEFAULT_DENY_FILE_GLOBS,
+)
 
 from .frontmatter import SkillFrontmatterError, parse_skill_frontmatter
 
 
 VALID_CAPABILITY_ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,80}$")
-
-DEFAULT_DENY_FILE_GLOBS = [
-    "**/.env",
-    "**/*.pem",
-    "**/*.key",
-    "**/id_rsa",
-    "**/credentials.json",
-]
 
 DEFAULT_ALLOW_FILE_GLOBS = [
     "**/*.py",
@@ -126,7 +121,7 @@ def convert_skill_to_capability_manifest(text: str) -> CapabilityManifest:
         "security": {
             "max_files": 20,
             "max_total_input_bytes": 300000,
-            "deny_file_globs": DEFAULT_DENY_FILE_GLOBS,
+            "deny_file_globs": list(INPUT_POLICY_DEFAULT_DENY_FILE_GLOBS),
             "allow_file_globs": DEFAULT_ALLOW_FILE_GLOBS,
         },
         "internal": internal,
