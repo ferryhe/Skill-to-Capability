@@ -59,6 +59,7 @@ Gateway B1 validation:
 
 ```bash
 cd gateway
+python -m pip install -e .[dev]
 python -m pytest tests/ -q
 ```
 
