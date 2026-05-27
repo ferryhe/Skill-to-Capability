@@ -21,7 +21,7 @@ export interface CapabilityLeafNode {
 
 export type CapabilityTreeNode = CapabilityCategoryNode | CapabilityLeafNode;
 
-export class CapabilityTreeProvider implements vscode.TreeDataProvider<CapabilityTreeNode> {
+export class CapabilityTreeProvider implements vscode.TreeDataProvider<CapabilityTreeNode>, vscode.Disposable {
   private capabilities: PublicCapability[] = [];
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<
     CapabilityTreeNode | undefined | null | void
@@ -80,26 +80,28 @@ export class CapabilityTreeProvider implements vscode.TreeDataProvider<Capabilit
     }
     return [];
   }
+
+  dispose(): void {
+    this.onDidChangeTreeDataEmitter.dispose();
+  }
 }
 
 export function buildCapabilityGroups(
   capabilities: readonly PublicCapability[],
 ): CapabilityCategoryNode[] {
   const groupedCapabilities = new Map<string, PublicCapability[]>();
-  for (const capability of sortCapabilities(capabilities)) {
+  for (const capability of capabilities) {
     const category = capability.category?.trim() || uncategorizedLabel;
     const group = groupedCapabilities.get(category) ?? [];
     group.push(capability);
     groupedCapabilities.set(category, group);
   }
 
-  return [...groupedCapabilities.entries()]
-    .sort(([left], [right]) => compareLabels(left, right))
-    .map(([label, groupCapabilities]) => ({
-      type: "category" as const,
-      label,
-      capabilities: groupCapabilities,
-    }));
+  return [...groupedCapabilities.entries()].map(([label, groupCapabilities]) => ({
+    type: "category" as const,
+    label,
+    capabilities: groupCapabilities,
+  }));
 }
 
 export function formatCapabilityDetail(capability: PublicCapability): string {

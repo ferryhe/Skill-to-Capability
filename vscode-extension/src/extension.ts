@@ -19,6 +19,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const capabilityTreeProvider = new CapabilityTreeProvider();
 
   context.subscriptions.push(
+    capabilityTreeProvider,
     vscode.window.registerTreeDataProvider(
       capabilityTreeViewId,
       capabilityTreeProvider,
