@@ -37,6 +37,24 @@ export interface PublicCapability {
   security?: JsonObject;
 }
 
+export interface CapabilityRunRequest {
+  instruction: string;
+  workspace?: unknown;
+  client: {
+    type: "vscode";
+    version?: string;
+  };
+}
+
+export interface CapabilityRunResponse {
+  task_id: string;
+  status: "completed" | "queued" | string;
+  capability_id?: string;
+  created_at?: string;
+  updated_at?: string;
+  result?: unknown;
+}
+
 export class GatewayClientError extends Error {
   readonly status: number;
   readonly code: string;
@@ -99,12 +117,39 @@ export class GatewayClient {
     return toPublicCapability(body);
   }
 
-  private async requestJson(path: string): Promise<unknown> {
+  async runCapability(
+    id: string,
+    request: CapabilityRunRequest,
+  ): Promise<CapabilityRunResponse> {
+    const capabilityId = id.trim();
+    if (!capabilityId) {
+      throw new GatewayClientError(
+        0,
+        "invalid_request",
+        "Capability id is required.",
+      );
+    }
+
+    const body = await this.requestJson(
+      `/v1/capabilities/${encodeURIComponent(capabilityId)}/run`,
+      {
+        method: "POST",
+        body: JSON.stringify(request),
+      },
+    );
+    return toCapabilityRunResponse(body);
+  }
+
+  private async requestJson(
+    path: string,
+    init: Pick<RequestInit, "method" | "body"> = {},
+  ): Promise<unknown> {
     let response: GatewayFetchResponse;
     try {
       response = await this.fetchImpl(`${this.gatewayUrl}${path}`, {
-        method: "GET",
-        headers: await this.buildHeaders(),
+        method: init.method ?? "GET",
+        headers: await this.buildHeaders(init.body !== undefined),
+        body: init.body,
       });
     } catch (error) {
       if (error instanceof GatewayClientError) {
@@ -124,10 +169,13 @@ export class GatewayClient {
     return body;
   }
 
-  private async buildHeaders(): Promise<Record<string, string>> {
+  private async buildHeaders(includeJsonContentType = false): Promise<Record<string, string>> {
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
+    if (includeJsonContentType) {
+      headers["Content-Type"] = "application/json";
+    }
 
     if (this.tenantId) {
       headers["X-Tenant-Id"] = this.tenantId;
@@ -140,6 +188,34 @@ export class GatewayClient {
 
     return headers;
   }
+}
+
+function toCapabilityRunResponse(value: unknown): CapabilityRunResponse {
+  const sanitized = stripServerOnlyFields(value);
+  if (!isJsonObject(sanitized)) {
+    throw invalidResponse("Gateway run response must be an object.");
+  }
+
+  const taskId = sanitized.task_id;
+  const status = sanitized.status;
+  if (typeof taskId !== "string" || typeof status !== "string") {
+    throw invalidResponse("Gateway run response must include task_id and status.");
+  }
+
+  const response: CapabilityRunResponse = {
+    task_id: taskId,
+    status,
+  };
+  for (const metadataField of ["capability_id", "created_at", "updated_at"] as const) {
+    const metadataValue = sanitized[metadataField];
+    if (typeof metadataValue === "string") {
+      response[metadataField] = metadataValue;
+    }
+  }
+  if ("result" in sanitized) {
+    response.result = sanitized.result;
+  }
+  return response;
 }
 
 function toPublicCapability(value: unknown): PublicCapability {

@@ -549,6 +549,11 @@ vscode-extension/src/webview/reportPanel.ts
 ```
 
 **验收**
+```bash
+cd vscode-extension
+npm run test:runCapability
+```
+
 - 连接本地 Gateway mock runner，能显示 report。
 - 即使 server 返回 internal 字段，UI 也忽略。
 

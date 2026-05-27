@@ -2,14 +2,12 @@ import * as vscode from "vscode";
 
 import { capabilityTreeViewId, CapabilityTreeProvider } from "./capabilities/treeProvider";
 import { registerCapabilityCommands } from "./commands/refreshCapabilities";
+import { registerRunCapabilityCommands } from "./commands/runCapability";
 import { createGatewaySession, GatewaySession } from "./auth/session";
 
 const configurationSection = "skillCapability";
 
 const placeholderCommands = [
-  ["skillCapability.runCapability", "Run capability"],
-  ["skillCapability.runCurrentFile", "Run current file"],
-  ["skillCapability.runCurrentGitDiff", "Run current git diff"],
   ["skillCapability.applyLastPatch", "Apply last patch"],
   ["skillCapability.runRecommendedTests", "Run recommended tests"],
 ] as const;
@@ -31,6 +29,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   registerCapabilityCommands(context, session, capabilityTreeProvider);
+  registerRunCapabilityCommands(context, session, capabilityTreeProvider);
 
   for (const [command, label] of placeholderCommands) {
     context.subscriptions.push(
