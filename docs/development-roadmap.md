@@ -559,8 +559,10 @@ npm run test:runCapability
 
 ### PR E5：Patch preview/apply
 
+**状态：完成**
+
 **范围**
-- 支持 unified diff 或 file replacement edits。
+- 支持 unified diff patch strings。
 - preview diff。
 - apply with VSCode WorkspaceEdit。
 - workspace path safety check。
@@ -575,7 +577,11 @@ vscode-extension/src/test/applyPatch.test.ts
 **验收**
 ```bash
 cd vscode-extension
-npm test -- applyPatch
+npm run test:applyPatch
+npm test
+cd ..
+python scripts/validate-contracts.py
+git diff --check
 ```
 
 **完成标准**
