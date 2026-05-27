@@ -82,7 +82,11 @@ export function stripServerOnlyFields(value: unknown): unknown {
 export function redactSensitiveText(value: string, secrets: readonly string[] = []): string {
   let redacted = value
     .replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
-    .replace(/([?&](?:token|api_key|key|secret)=)[^&\s]+/gi, "$1[REDACTED]");
+    .replace(
+      /([?&])([^=\s&#]+)=([^&#\s]*)/g,
+      (match, delimiter: string, key: string) =>
+        isSensitiveValueKey(key) ? `${delimiter}${key}=[REDACTED]` : match,
+    );
 
   for (const secret of secrets) {
     const trimmedSecret = secret.trim();

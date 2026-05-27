@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
+import { resolve } from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
 import {
   MCP_ADAPTER_SERVER_INFO,
   PLANNED_F2_TOOL_NAMES,
   createSkillMcpServer,
+  isEntrypointModule,
 } from "../server.js";
 
 test("server module exports stable metadata for the MCP adapter", () => {
@@ -39,4 +42,10 @@ test("createSkillMcpServer constructs without connecting or calling Gateway", ()
   assert.equal(fetchCalled, false);
   assert.deepEqual(created.plannedTools, PLANNED_F2_TOOL_NAMES);
   assert.equal(JSON.stringify(created.gatewayClient).includes("secret-token"), false);
+});
+
+test("isEntrypointModule matches relative entrypoint paths", () => {
+  const entrypointUrl = pathToFileURL(resolve("dist/server.js")).href;
+
+  assert.equal(isEntrypointModule(entrypointUrl, "dist/server.js"), true);
 });

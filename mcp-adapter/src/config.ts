@@ -37,7 +37,7 @@ export function loadAdapterConfig(options: LoadAdapterConfigOptions = {}): Adapt
   );
   if (!rawGatewayUrl) {
     throw new ConfigError(
-      "Gateway URL is required. Set --gateway-url or SKILL_GATEWAY_URL.",
+      "Gateway URL is required. Set --gateway-url, SKILL_GATEWAY_URL, or GATEWAY_URL.",
     );
   }
 

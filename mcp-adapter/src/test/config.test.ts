@@ -66,7 +66,10 @@ test("loadAdapterConfig reports missing gateway URL without leaking token env va
     (error) => {
       assert.equal(error instanceof ConfigError, true);
       assert.equal(String(error).includes("secret-token"), false);
-      assert.match((error as Error).message, /Gateway URL is required/);
+      assert.equal(
+        (error as Error).message,
+        "Gateway URL is required. Set --gateway-url, SKILL_GATEWAY_URL, or GATEWAY_URL.",
+      );
       return true;
     },
   );

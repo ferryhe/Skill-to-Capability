@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -61,9 +62,16 @@ export async function runStdioServer(
   await server.connect(transport);
 }
 
+export function isEntrypointModule(moduleUrl: string, entrypoint: string | undefined): boolean {
+  if (!entrypoint) {
+    return false;
+  }
+  return moduleUrl === pathToFileURL(resolve(entrypoint)).href;
+}
+
 function isMainModule(): boolean {
   const entrypoint = process.argv[1];
-  return Boolean(entrypoint) && import.meta.url === pathToFileURL(entrypoint).href;
+  return isEntrypointModule(import.meta.url, entrypoint);
 }
 
 function safeErrorMessage(error: unknown): string {

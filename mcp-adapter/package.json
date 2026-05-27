@@ -4,6 +4,9 @@
   "description": "MCP stdio adapter skeleton for Skill Gateway capabilities.",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
   "bin": {
     "company-skill-mcp": "./dist/server.js"
   },
@@ -12,8 +15,9 @@
     "build": "tsc -p ./",
     "test:config": "npm run build && node --test dist/test/config.test.js",
     "test:gatewayClient": "npm run build && node --test dist/test/gatewayClient.test.js",
+    "test:security": "npm run build && node --test dist/test/security.test.js",
     "test:server": "npm run build && node --test dist/test/server.test.js",
-    "test": "npm run build && node --test dist/test/config.test.js dist/test/gatewayClient.test.js dist/test/server.test.js"
+    "test": "npm run build && node --test dist/test/config.test.js dist/test/gatewayClient.test.js dist/test/security.test.js dist/test/server.test.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0"
