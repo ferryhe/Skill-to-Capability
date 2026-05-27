@@ -1,9 +1,15 @@
 import json
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
+from gateway.app.api import capabilities as capabilities_api
+from gateway.app.capabilities.manifest import CapabilityManifest
+from gateway.app.capabilities.registry import default_registry
 from gateway.app.main import app
+from gateway.app.tasks.models import CapabilityRunResult
 
 
 PRIVATE_RESPONSE_TOKENS = (
@@ -14,6 +20,7 @@ PRIVATE_RESPONSE_TOKENS = (
     "skill_ref",
     "model_policy",
 )
+SECRET_LIKE_SELECTION_CONTENT = 'OPENAI_API_KEY = "sk-proj-secretvalue"'
 
 
 def valid_run_request() -> dict[str, Any]:
@@ -54,6 +61,48 @@ def assert_policy_error(response_body: dict[str, Any], expected_code: str) -> No
     assert isinstance(detail["message"], str)
 
 
+class StubRegistry:
+    def __init__(self, capability: CapabilityManifest) -> None:
+        self._capability = capability
+
+    def find(self, capability_id: str) -> CapabilityManifest | None:
+        if capability_id == self._capability.id:
+            return self._capability
+        return None
+
+
+def backend_rbac_capability() -> CapabilityManifest:
+    capability = default_registry().find("backend-rbac-review")
+    assert capability is not None
+    return capability
+
+
+def capability_with(
+    *,
+    input_modes: list[str] | None = None,
+    runner: str = "mock",
+) -> CapabilityManifest:
+    capability = backend_rbac_capability()
+    return capability.model_copy(
+        update={
+            "input_modes": input_modes or capability.input_modes,
+            "internal": capability.internal.model_copy(update={"runner": runner}),
+        }
+    )
+
+
+def use_capability(monkeypatch: pytest.MonkeyPatch, capability: CapabilityManifest) -> None:
+    monkeypatch.setattr(
+        capabilities_api,
+        "default_registry",
+        lambda: StubRegistry(capability),
+    )
+
+
+def test_backend_rbac_review_manifest_uses_mock_runner_for_b4() -> None:
+    assert backend_rbac_capability().internal.runner == "mock"
+
+
 def test_run_capability_returns_completed_mock_result_public_fields_only() -> None:
     client = TestClient(app)
 
@@ -85,6 +134,23 @@ def test_run_capability_returns_completed_mock_result_public_fields_only() -> No
     assert isinstance(result["artifacts"], list)
     assert isinstance(result["safe_rationale"], str)
     assert 0 <= result["confidence"] <= 1
+    assert_no_private_response_tokens(body)
+
+
+def test_run_returns_public_error_for_unsupported_runner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(runner="hermes"))
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=valid_run_request(),
+    )
+
+    assert response.status_code == 501
+    body = response.json()
+    assert_policy_error(body, "unsupported_runner")
     assert_no_private_response_tokens(body)
 
 
@@ -146,9 +212,74 @@ def test_run_denies_workspace_file_outside_manifest_allowlist() -> None:
     assert_no_private_response_tokens(body)
 
 
-def test_run_denies_denylisted_selection_path_with_policy_error_only() -> None:
+def test_run_rejects_workspace_files_when_no_file_like_input_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(input_modes=["git_diff"]))
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=valid_run_request(),
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert_policy_error(body, "unsupported_input_mode")
+    assert "workspace files" in body["detail"]["message"]
+    assert_no_private_response_tokens(body)
+
+
+def test_run_rejects_git_diff_when_input_mode_is_not_declared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(input_modes=["current_file"]))
     client = TestClient(app)
     request_body = valid_run_request()
+    request_body["workspace"]["files"] = []
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert_policy_error(body, "unsupported_input_mode")
+    assert "git_diff" in body["detail"]["message"]
+    assert_no_private_response_tokens(body)
+
+
+def test_run_rejects_selection_when_input_mode_is_not_declared() -> None:
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["selection"] = {
+        "path": ".env",
+        "start_line": 1,
+        "end_line": 1,
+        "content": "not a real secret",
+    }
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert_policy_error(body, "unsupported_input_mode")
+    assert "selection" in body["detail"]["message"]
+    assert_no_private_response_tokens(body)
+
+
+def test_run_denies_denylisted_selection_path_when_mode_is_declared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(input_modes=["selection"]))
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["files"] = []
+    request_body["workspace"]["git_diff"] = None
     request_body["workspace"]["selection"] = {
         "path": ".env",
         "start_line": 1,
@@ -168,14 +299,42 @@ def test_run_denies_denylisted_selection_path_with_policy_error_only() -> None:
     assert_no_private_response_tokens(body)
 
 
-def test_run_rejects_secret_like_selection_content() -> None:
+def test_run_rejects_selection_content_when_input_mode_is_not_declared() -> None:
     client = TestClient(app)
     request_body = valid_run_request()
     request_body["workspace"]["selection"] = {
         "path": "src/settings.py",
         "start_line": 1,
         "end_line": 1,
-        "content": 'OPENAI_API_KEY = "sk-proj-secretvalue"',
+        "content": SECRET_LIKE_SELECTION_CONTENT,
+    }
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert_policy_error(body, "unsupported_input_mode")
+    assert "selection" in body["detail"]["message"]
+    assert SECRET_LIKE_SELECTION_CONTENT not in json.dumps(body)
+    assert_no_private_response_tokens(body)
+
+
+def test_run_rejects_secret_like_selection_content_when_mode_is_declared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(input_modes=["selection"]))
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["files"] = []
+    request_body["workspace"]["git_diff"] = None
+    request_body["workspace"]["selection"] = {
+        "path": "src/settings.py",
+        "start_line": 1,
+        "end_line": 1,
+        "content": SECRET_LIKE_SELECTION_CONTENT,
     }
 
     response = client.post(
@@ -190,7 +349,32 @@ def test_run_rejects_secret_like_selection_content() -> None:
     assert_no_private_response_tokens(body)
 
 
-def test_run_counts_selection_content_toward_manifest_total_input_bytes() -> None:
+def test_run_rejects_oversized_selection_when_input_mode_is_not_declared() -> None:
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["files"] = []
+    request_body["workspace"]["git_diff"] = None
+    request_body["workspace"]["selection"] = {
+        "path": "src/large.py",
+        "content": "x" * 300001,
+    }
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert_policy_error(body, "unsupported_input_mode")
+    assert "selection" in body["detail"]["message"]
+    assert_no_private_response_tokens(body)
+
+
+def test_run_counts_selection_content_toward_manifest_total_input_bytes_when_declared(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(input_modes=["selection"]))
     client = TestClient(app)
     request_body = valid_run_request()
     request_body["workspace"]["files"] = []
@@ -209,6 +393,58 @@ def test_run_counts_selection_content_toward_manifest_total_input_bytes() -> Non
     body = response.json()
     assert_policy_error(body, "max_total_input_bytes_exceeded")
     assert "limit is 300000" in body["detail"]["message"]
+    assert_no_private_response_tokens(body)
+
+
+@pytest.mark.parametrize(
+    "selection",
+    [
+        {
+            "path": "app.py",
+            "start_line": 1,
+            "content": SECRET_LIKE_SELECTION_CONTENT,
+        },
+        {
+            "path": "app.py",
+            "end_line": 1,
+            "content": SECRET_LIKE_SELECTION_CONTENT,
+        },
+        {
+            "path": "app.py",
+            "start_line": 0,
+            "end_line": 1,
+            "content": SECRET_LIKE_SELECTION_CONTENT,
+        },
+        {
+            "path": "app.py",
+            "start_line": 1,
+            "end_line": 0,
+            "content": SECRET_LIKE_SELECTION_CONTENT,
+        },
+        {
+            "path": "app.py",
+            "start_line": 3,
+            "end_line": 2,
+            "content": SECRET_LIKE_SELECTION_CONTENT,
+        },
+    ],
+)
+def test_run_rejects_invalid_selection_ranges(
+    selection: dict[str, Any],
+) -> None:
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["selection"] = selection
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 400
+    body = response.json()
+    assert_policy_error(body, "invalid_selection_range")
+    assert SECRET_LIKE_SELECTION_CONTENT not in json.dumps(body)
     assert_no_private_response_tokens(body)
 
 
@@ -312,3 +548,19 @@ def test_run_returns_distinct_task_ids_for_separate_runs() -> None:
     assert second_response.json()["task_id"].startswith("task_")
     assert_no_private_response_tokens(first_response.json())
     assert_no_private_response_tokens(second_response.json())
+
+
+def test_run_result_rejects_unvetted_artifact_keys() -> None:
+    with pytest.raises(ValidationError):
+        CapabilityRunResult(
+            summary="Mock summary.",
+            artifacts=[
+                {
+                    "type": "report",
+                    "label": "Report",
+                    "unexpected": "not public",
+                }
+            ],
+            safe_rationale="Public artifact fields are constrained.",
+            confidence=0.82,
+        )

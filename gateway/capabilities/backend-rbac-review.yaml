@@ -89,6 +89,6 @@ security:
 
 internal:
   skill_ref: backend-rbac-review
-  runner: hermes
+  runner: mock
   model_policy: high_reasoning
   expose_skill_text: false

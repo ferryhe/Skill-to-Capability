@@ -15,8 +15,8 @@ class WorkspaceSelection(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     path: str
-    start_line: int | None = Field(default=None, ge=1)
-    end_line: int | None = Field(default=None, ge=1)
+    start_line: int | None = None
+    end_line: int | None = None
     content: str
 
 
@@ -57,6 +57,16 @@ class RunFinding(BaseModel):
     message: str | None = None
 
 
+class RunArtifact(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: str = Field(min_length=1)
+    label: str | None = None
+    path: str | None = None
+    uri: str | None = None
+    content_type: str | None = None
+
+
 class CapabilityRunResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -64,7 +74,7 @@ class CapabilityRunResult(BaseModel):
     findings: list[RunFinding] = Field(default_factory=list)
     patch: str | None = None
     recommended_tests: list[str] = Field(default_factory=list)
-    artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    artifacts: list[RunArtifact] = Field(default_factory=list)
     safe_rationale: str
     confidence: float = Field(ge=0, le=1)
 
