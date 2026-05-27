@@ -4,13 +4,10 @@ import { capabilityTreeViewId, CapabilityTreeProvider } from "./capabilities/tre
 import { registerCapabilityCommands } from "./commands/refreshCapabilities";
 import { registerRunCapabilityCommands } from "./commands/runCapability";
 import { registerApplyPatchCommand } from "./commands/applyPatch";
+import { registerRecommendedTestsCommand } from "./commands/runRecommendedTests";
 import { createGatewaySession, GatewaySession } from "./auth/session";
 
 const configurationSection = "skillCapability";
-
-const placeholderCommands = [
-  ["skillCapability.runRecommendedTests", "Run recommended tests"],
-] as const;
 
 export function activate(context: vscode.ExtensionContext): void {
   const session = createGatewaySession(context);
@@ -30,13 +27,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   registerCapabilityCommands(context, session, capabilityTreeProvider);
   registerApplyPatchCommand(context);
+  registerRecommendedTestsCommand(context);
   registerRunCapabilityCommands(context, session, capabilityTreeProvider);
-
-  for (const [command, label] of placeholderCommands) {
-    context.subscriptions.push(
-      vscode.commands.registerCommand(command, () => showPlaceholder(label)),
-    );
-  }
 }
 
 export function deactivate(): void {
@@ -125,8 +117,4 @@ async function configureGateway(session: GatewaySession): Promise<void> {
 
   await session.setToken(trimmedToken);
   vscode.window.showInformationMessage("Skill Gateway token saved.");
-}
-
-function showPlaceholder(label: string): Thenable<string | undefined> {
-  return vscode.window.showInformationMessage(`${label} will be added in a later PR.`);
 }

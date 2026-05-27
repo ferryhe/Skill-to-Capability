@@ -28,6 +28,7 @@ export interface RunCommandDependencies {
   };
   renderReport(report: CapabilityRunResponse | unknown): void;
   rememberPatch?(report: CapabilityRunResponse | unknown, workspaceFolder?: vscode.WorkspaceFolder): void;
+  rememberRecommendedTests?(report: CapabilityRunResponse | unknown, workspaceFolder?: vscode.WorkspaceFolder): void;
   clientVersion?: string;
 }
 
@@ -42,6 +43,10 @@ export function registerRunCapabilityCommands(
     rememberPatch: (report, workspaceFolder) => {
       const { rememberRunPatch } = require("./applyPatch") as typeof import("./applyPatch");
       rememberRunPatch(report, workspaceFolder);
+    },
+    rememberRecommendedTests: (report, workspaceFolder) => {
+      const { rememberRunRecommendedTests } = require("./runRecommendedTests") as typeof import("./runRecommendedTests");
+      rememberRunRecommendedTests(report, workspaceFolder);
     },
     clientVersion: vscode.version,
   };
@@ -151,6 +156,7 @@ async function runCapabilityWithMode(
   try {
     const report = await deps.createClient().runCapability(selectedCapability.id, request);
     deps.rememberPatch?.(report, contextResult.workspaceFolder);
+    deps.rememberRecommendedTests?.(report, contextResult.workspaceFolder);
     deps.renderReport(report);
   } catch (error) {
     vscode.window.showErrorMessage(gatewayErrorMessage(error));

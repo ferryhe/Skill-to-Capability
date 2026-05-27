@@ -120,7 +120,8 @@
     "test:workspaceCollector": "npm run compile && node --test out/test/workspaceCollector.test.js",
     "test:runCapability": "npm run compile && node --test out/test/client.test.js out/test/reportPanel.test.js out/test/runCapability.test.js",
     "test:applyPatch": "npm run compile && node --test out/test/applyPatch.test.js",
-    "test": "npm run compile && node --test out/test/client.test.js out/test/capabilityUi.test.js out/test/workspaceCollector.test.js out/test/reportPanel.test.js out/test/runCapability.test.js out/test/applyPatch.test.js"
+    "test:recommendedTests": "npm run compile && node --test out/test/runRecommendedTests.test.js",
+    "test": "npm run compile && node --test out/test/client.test.js out/test/capabilityUi.test.js out/test/workspaceCollector.test.js out/test/reportPanel.test.js out/test/runCapability.test.js out/test/applyPatch.test.js out/test/runRecommendedTests.test.js"
   },
   "devDependencies": {
     "@types/node": "20.12.12",
