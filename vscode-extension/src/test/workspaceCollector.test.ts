@@ -53,8 +53,8 @@ test("selected files deny sensitive paths without uploading their contents", asy
   });
 });
 
-test("current file denies sensitive filenames without uploading content", () => {
-  const result = collectCurrentFileContext({
+test("current file denies sensitive filenames without uploading content", async () => {
+  const result = await collectCurrentFileContext({
     workspaceRoot: path.join("C:", "workspace"),
     document: {
       uri: { fsPath: path.join("C:", "workspace", "nested", "private.pem") },
@@ -71,13 +71,14 @@ test("current file denies sensitive filenames without uploading content", () => 
 test("binary selected and current files are denied without uploading bytes", async () => {
   await withTempWorkspace(async (workspaceRoot) => {
     await writeFile(path.join(workspaceRoot, "image.bin"), Buffer.from([0, 1, 2, 3, 4]));
+    await writeFile(path.join(workspaceRoot, "current.txt"), "safe text");
 
     const selected = await collectSelectedFilesContext({
       workspaceRoot,
       fileUris: [path.join(workspaceRoot, "image.bin")],
       settings: defaultSettings,
     });
-    const current = collectCurrentFileContext({
+    const current = await collectCurrentFileContext({
       workspaceRoot,
       document: {
         uri: path.join(workspaceRoot, "current.txt"),
@@ -168,71 +169,76 @@ test("selected files sanitize read failures and continue collecting safe files",
   });
 });
 
-test("current file and selection collect workspace-relative public context", () => {
-  const document: WorkspaceDocument = {
-    uri: { fsPath: path.join("C:", "workspace", "src", "feature.ts") },
-    text: "const first = 1;\nconst second = 2;\n",
-  };
-  const workspaceRoot = path.join("C:", "workspace");
+test("current file and selection collect workspace-relative public context", async () => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const documentText = "const first = 1;\nconst second = 2;\n";
+    const documentPath = path.join(workspaceRoot, "src", "feature.ts");
+    await mkdir(path.dirname(documentPath), { recursive: true });
+    await writeFile(documentPath, documentText);
+    const document: WorkspaceDocument = {
+      uri: { fsPath: documentPath },
+      text: documentText,
+    };
 
-  const currentFile = collectCurrentFileContext({
-    workspaceRoot,
-    document,
-    settings: defaultSettings,
-  });
-  const selection = collectSelectionContext({
-    workspaceRoot,
-    document,
-    selection: {
-      startLine: 2,
-      endLine: 2,
-      text: "const second = 2;",
-    },
-    settings: defaultSettings,
-  });
-  const payload = createRunRequestPayload({
-    instruction: "Review this file.",
-    workspace: {
-      ...currentFile.workspace,
-      selection: selection.workspace.selection,
-    },
-    clientVersion: "0.1.0",
-  });
-
-  assert.deepEqual(currentFile.workspace.files, [
-    { path: "src/feature.ts", content: document.text },
-  ]);
-  assert.deepEqual(selection.workspace.selection, {
-    path: "src/feature.ts",
-    start_line: 2,
-    end_line: 2,
-    content: "const second = 2;",
-  });
-  assert.deepEqual(payload, {
-    instruction: "Review this file.",
-    workspace: {
-      files: [{ path: "src/feature.ts", content: document.text }],
+    const currentFile = await collectCurrentFileContext({
+      workspaceRoot,
+      document,
+      settings: defaultSettings,
+    });
+    const selection = await collectSelectionContext({
+      workspaceRoot,
+      document,
       selection: {
-        path: "src/feature.ts",
-        start_line: 2,
-        end_line: 2,
-        content: "const second = 2;",
+        startLine: 1,
+        endLine: 1,
+        text: "const second = 2;",
       },
-    },
-    client: {
-      type: "vscode",
-      version: "0.1.0",
-    },
+      settings: defaultSettings,
+    });
+    const payload = createRunRequestPayload({
+      instruction: "Review this file.",
+      workspace: {
+        ...currentFile.workspace,
+        selection: selection.workspace.selection,
+      },
+      clientVersion: "0.1.0",
+    });
+
+    assert.deepEqual(currentFile.workspace.files, [
+      { path: "src/feature.ts", content: document.text },
+    ]);
+    assert.deepEqual(selection.workspace.selection, {
+      path: "src/feature.ts",
+      start_line: 2,
+      end_line: 2,
+      content: "const second = 2;",
+    });
+    assert.deepEqual(payload, {
+      instruction: "Review this file.",
+      workspace: {
+        files: [{ path: "src/feature.ts", content: document.text }],
+        selection: {
+          path: "src/feature.ts",
+          start_line: 2,
+          end_line: 2,
+          content: "const second = 2;",
+        },
+      },
+      client: {
+        type: "vscode",
+        version: "0.1.0",
+      },
+    });
   });
 });
 
-test("empty selections return a clear no-content error", () => {
+test("empty selections return a clear no-content error", async () => {
   const document: WorkspaceDocument = {
     uri: path.join("C:", "workspace", "src", "feature.ts"),
     text: "const first = 1;\n",
   };
 
-  const result = collectSelectionContext({
+  const result = await collectSelectionContext({
     workspaceRoot: path.join("C:", "workspace"),
     document,
     selection: {
@@ -247,24 +253,165 @@ test("empty selections return a clear no-content error", () => {
   assert.deepEqual(result.errors, ["Selection is empty; no selection context was collected."]);
 });
 
-test("selection rejects binary-like text without uploading content", () => {
-  const result = collectSelectionContext({
+test("selection rejects binary-like text without uploading content", async () => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const documentPath = path.join(workspaceRoot, "src", "feature.ts");
+    await mkdir(path.dirname(documentPath), { recursive: true });
+    await writeFile(documentPath, "safe text");
+
+    const result = await collectSelectionContext({
+      workspaceRoot,
+      document: {
+        uri: documentPath,
+        text: "safe-prefix\u0000binary-suffix",
+      },
+      selection: {
+        startLine: 1,
+        endLine: 1,
+        text: "safe-prefix\u0000binary-suffix",
+      },
+      settings: defaultSettings,
+    });
+
+    assert.equal(result.workspace.selection, undefined);
+    assert.deepEqual(result.errors, ["src/feature.ts selection appears to be binary and cannot be uploaded."]);
+    assert.equal(JSON.stringify(result).includes("binary-suffix"), false);
+  });
+});
+
+test("current file rejects symlinks before uploading editor content", async (t) => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const outsidePath = path.join(path.dirname(workspaceRoot), "outside-current-secret.txt");
+    const linkPath = path.join(workspaceRoot, "linked-current-secret.txt");
+    try {
+      await writeFile(outsidePath, "OUTSIDE_CURRENT_SECRET");
+
+      try {
+        await symlink(outsidePath, linkPath);
+      } catch (error) {
+        t.skip(`symlink creation is unsupported in this environment: ${String(error)}`);
+        return;
+      }
+
+      const result = await collectCurrentFileContext({
+        workspaceRoot,
+        document: {
+          uri: linkPath,
+          text: "OUTSIDE_CURRENT_SECRET",
+        },
+        settings: defaultSettings,
+      });
+
+      assert.deepEqual(result.workspace.files, []);
+      assert.deepEqual(result.errors, ["linked-current-secret.txt is a symbolic link and cannot be uploaded."]);
+      assert.equal(JSON.stringify(result).includes("OUTSIDE_CURRENT_SECRET"), false);
+    } finally {
+      await rm(outsidePath, { force: true });
+    }
+  });
+});
+
+test("selection rejects symlinks before uploading selected content", async (t) => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const outsidePath = path.join(path.dirname(workspaceRoot), "outside-selection-secret.txt");
+    const linkPath = path.join(workspaceRoot, "linked-selection-secret.txt");
+    try {
+      await writeFile(outsidePath, "OUTSIDE_SELECTION_SECRET");
+
+      try {
+        await symlink(outsidePath, linkPath);
+      } catch (error) {
+        t.skip(`symlink creation is unsupported in this environment: ${String(error)}`);
+        return;
+      }
+
+      const result = await collectSelectionContext({
+        workspaceRoot,
+        document: {
+          uri: linkPath,
+          text: "OUTSIDE_SELECTION_SECRET",
+        },
+        selection: {
+          startLine: 0,
+          endLine: 0,
+          text: "OUTSIDE_SELECTION_SECRET",
+        },
+        settings: defaultSettings,
+      });
+
+      assert.equal(result.workspace.selection, undefined);
+      assert.deepEqual(result.errors, ["linked-selection-secret.txt is a symbolic link and cannot be uploaded."]);
+      assert.equal(JSON.stringify(result).includes("OUTSIDE_SELECTION_SECRET"), false);
+    } finally {
+      await rm(outsidePath, { force: true });
+    }
+  });
+});
+
+test("selection converts VSCode zero-based line numbers to one-based payload fields", async () => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const documentText = "const first = 1;\nconst second = 2;\n";
+    const documentPath = path.join(workspaceRoot, "src", "feature.ts");
+    await mkdir(path.dirname(documentPath), { recursive: true });
+    await writeFile(documentPath, documentText);
+
+    const result = await collectSelectionContext({
+      workspaceRoot,
+      document: {
+        uri: documentPath,
+        text: documentText,
+      },
+      selection: {
+        startLine: 0,
+        endLine: 1,
+        text: "const first = 1;\nconst second = 2;",
+      },
+      settings: defaultSettings,
+    });
+
+    assert.deepEqual(result.workspace.selection, {
+      path: "src/feature.ts",
+      start_line: 1,
+      end_line: 2,
+      content: "const first = 1;\nconst second = 2;",
+    });
+    assert.deepEqual(result.errors, []);
+  });
+});
+
+test("selection rejects negative or end-before-start line numbers", async () => {
+  const document: WorkspaceDocument = {
+    uri: path.join("C:", "workspace", "src", "feature.ts"),
+    text: "const first = 1;\n",
+  };
+
+  const negative = await collectSelectionContext({
     workspaceRoot: path.join("C:", "workspace"),
-    document: {
-      uri: path.join("C:", "workspace", "src", "feature.ts"),
-      text: "safe-prefix\u0000binary-suffix",
+    document,
+    selection: {
+      startLine: -1,
+      endLine: 0,
+      text: "const first = 1;",
     },
+    settings: defaultSettings,
+  });
+  const reversed = await collectSelectionContext({
+    workspaceRoot: path.join("C:", "workspace"),
+    document,
     selection: {
       startLine: 1,
-      endLine: 1,
-      text: "safe-prefix\u0000binary-suffix",
+      endLine: 0,
+      text: "const first = 1;",
     },
     settings: defaultSettings,
   });
 
-  assert.equal(result.workspace.selection, undefined);
-  assert.deepEqual(result.errors, ["src/feature.ts selection appears to be binary and cannot be uploaded."]);
-  assert.equal(JSON.stringify(result).includes("binary-suffix"), false);
+  assert.equal(negative.workspace.selection, undefined);
+  assert.equal(reversed.workspace.selection, undefined);
+  assert.deepEqual(negative.errors, ["Selection line range is invalid."]);
+  assert.deepEqual(reversed.errors, ["Selection line range is invalid."]);
+  assert.equal(JSON.stringify(negative).includes("const first"), false);
+  assert.equal(JSON.stringify(reversed).includes("const first"), false);
 });
 
 test("selected files reject symlinks before reading target content", async (t) => {

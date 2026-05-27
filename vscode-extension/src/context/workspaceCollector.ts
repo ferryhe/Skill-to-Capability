@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import type { Stats } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import {
   acceptWorkspaceRelativePath,
@@ -88,12 +89,17 @@ export interface RunRequestPayload {
   };
 }
 
-export function collectCurrentFileContext(
+export async function collectCurrentFileContext(
   options: CollectCurrentFileOptions,
-): WorkspaceContextResult {
+): Promise<WorkspaceContextResult> {
   const resolved = resolveWorkspacePath(options.workspaceRoot, fsPath(options.document.uri));
   if ("error" in resolved) {
     return { workspace: { files: [] }, errors: [resolved.error] };
+  }
+
+  const uploadableFile = await validateUploadableFile(resolved);
+  if ("error" in uploadableFile) {
+    return { workspace: { files: [] }, errors: [uploadableFile.error] };
   }
 
   return collectTextFile(
@@ -105,9 +111,9 @@ export function collectCurrentFileContext(
   );
 }
 
-export function collectSelectionContext(
+export async function collectSelectionContext(
   options: CollectSelectionOptions,
-): WorkspaceContextResult {
+): Promise<WorkspaceContextResult> {
   if (!options.selection.text) {
     return {
       workspace: {},
@@ -118,6 +124,18 @@ export function collectSelectionContext(
   const resolved = resolveWorkspacePath(options.workspaceRoot, fsPath(options.document.uri));
   if ("error" in resolved) {
     return { workspace: {}, errors: [resolved.error] };
+  }
+
+  if (options.selection.startLine < 0 || options.selection.endLine < options.selection.startLine) {
+    return {
+      workspace: {},
+      errors: ["Selection line range is invalid."],
+    };
+  }
+
+  const uploadableFile = await validateUploadableFile(resolved);
+  if ("error" in uploadableFile) {
+    return { workspace: {}, errors: [uploadableFile.error] };
   }
 
   if (isBinaryContent(options.selection.text)) {
@@ -138,8 +156,8 @@ export function collectSelectionContext(
     workspace: {
       selection: {
         path: resolved.relativePath,
-        start_line: options.selection.startLine,
-        end_line: options.selection.endLine,
+        start_line: options.selection.startLine + 1,
+        end_line: options.selection.endLine + 1,
         content: options.selection.text,
       },
     },
@@ -167,18 +185,13 @@ export async function collectSelectedFilesContext(
     }
 
     try {
-      const fileStats = await lstat(resolved.absolutePath);
-      if (fileStats.isSymbolicLink()) {
-        errors.push(`${resolved.relativePath} is a symbolic link and cannot be uploaded.`);
+      const uploadableFile = await validateUploadableFile(resolved);
+      if ("error" in uploadableFile) {
+        errors.push(uploadableFile.error);
         continue;
       }
 
-      if (!fileStats.isFile()) {
-        errors.push(`${resolved.relativePath} is not a regular file and cannot be uploaded.`);
-        continue;
-      }
-
-      if (totalBytes + fileStats.size > options.settings.maxTotalBytes) {
+      if (totalBytes + uploadableFile.stats.size > options.settings.maxTotalBytes) {
         errors.push(`${resolved.relativePath} exceeds maxTotalBytes ${options.settings.maxTotalBytes}.`);
         continue;
       }
@@ -199,6 +212,25 @@ export async function collectSelectedFilesContext(
   }
 
   return { workspace, errors };
+}
+
+async function validateUploadableFile(
+  resolved: { absolutePath: string; relativePath: string },
+): Promise<{ stats: Stats } | { error: string }> {
+  try {
+    const fileStats = await lstat(resolved.absolutePath);
+    if (fileStats.isSymbolicLink()) {
+      return { error: `${resolved.relativePath} is a symbolic link and cannot be uploaded.` };
+    }
+
+    if (!fileStats.isFile()) {
+      return { error: `${resolved.relativePath} is not a regular file and cannot be uploaded.` };
+    }
+
+    return { stats: fileStats };
+  } catch {
+    return { error: `${resolved.relativePath} could not be read for workspace context.` };
+  }
 }
 
 export async function collectGitDiffContext(
