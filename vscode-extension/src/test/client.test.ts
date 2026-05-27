@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import Module from "node:module";
 import test from "node:test";
 
 import {
@@ -104,6 +105,96 @@ test("listCapabilities returns public fields and strips leakage fields", async (
   }
 });
 
+test("listCapabilities strips normalized and pattern-based server-only fields recursively", async () => {
+  const fetch: FetchLike = async () =>
+    jsonResponse(200, {
+      capabilities: [
+        {
+          ...minimalCapability(),
+          input_schema: {
+            type: "object",
+            provider: "private-provider",
+            modelProvider: "private-model-provider",
+            promptText: "private prompt",
+            user_prompt: "private user prompt",
+            properties: {
+              instruction: {
+                type: "string",
+                systemPrompt: "private system prompt",
+                rawRunnerOutput: { content: "private" },
+                nested: {
+                  debugTrace: ["private trace"],
+                  value: true,
+                },
+              },
+            },
+          },
+          output_schema: {
+            type: "object",
+            chainOfThought: "private reasoning",
+            skill_body: "private skill body",
+            variants: [
+              {
+                type: "text",
+                providerInfo: "private provider details",
+                visible: true,
+              },
+              {
+                model_policy: "private policy",
+                safe: "yes",
+              },
+            ],
+          },
+          security: {
+            max_files: 20,
+            trace_id: "private trace",
+            internalState: { cache: "private" },
+            provider_info: "private provider info",
+            allowed: {
+              mode: "safe",
+            },
+          },
+        },
+      ],
+    });
+  const client = new GatewayClient({
+    gatewayUrl: "https://gateway.example.com",
+    fetch,
+  });
+
+  const capabilities = await client.listCapabilities();
+
+  assert.deepEqual(capabilities[0].input_schema, {
+    type: "object",
+    properties: {
+      instruction: {
+        type: "string",
+        nested: {
+          value: true,
+        },
+      },
+    },
+  });
+  assert.deepEqual(capabilities[0].output_schema, {
+    type: "object",
+    variants: [
+      {
+        type: "text",
+        visible: true,
+      },
+      {
+        safe: "yes",
+      },
+    ],
+  });
+  assert.deepEqual(capabilities[0].security, {
+    max_files: 20,
+    allowed: {
+      mode: "safe",
+    },
+  });
+});
+
 test("getCapability sends tenant and authorization headers", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   const fetch: FetchLike = async (url: string | URL, init?: RequestInit) => {
@@ -187,6 +278,94 @@ test("rejects blank Gateway URLs as invalid configuration", () => {
   );
 });
 
+test("configureGateway rejects blank replacement tokens without deleting the existing secret", async () => {
+  const inputValues = [
+    "https://gateway.example.com",
+    "tenant-a",
+    "   ",
+  ];
+  const commands = new Map<string, CommandCallback>();
+  const deletedSecrets: string[] = [];
+  const storedSecrets: Array<{ key: string; value: string }> = [];
+  const errorMessages: string[] = [];
+  const informationMessages: string[] = [];
+  const configurationUpdates: Array<{ key: string; value: string }> = [];
+
+  const vscodeMock = {
+    commands: {
+      registerCommand(command: string, callback: CommandCallback): Disposable {
+        commands.set(command, callback);
+        return { dispose() {} };
+      },
+    },
+    workspace: {
+      getConfiguration(section: string): MockConfiguration {
+        assert.equal(section, "skillCapability");
+        return {
+          get<T>(_key: string, defaultValue: T): T {
+            return defaultValue;
+          },
+          async update(key: string, value: string): Promise<void> {
+            configurationUpdates.push({ key, value });
+          },
+        };
+      },
+    },
+    window: {
+      async showInputBox(): Promise<string | undefined> {
+        return inputValues.shift();
+      },
+      async showQuickPick(items: Array<{ action: string }>): Promise<{ action: string } | undefined> {
+        return items.find((item) => item.action === "set");
+      },
+      showErrorMessage(message: string): Promise<undefined> {
+        errorMessages.push(message);
+        return Promise.resolve(undefined);
+      },
+      showInformationMessage(message: string): Promise<undefined> {
+        informationMessages.push(message);
+        return Promise.resolve(undefined);
+      },
+    },
+    ConfigurationTarget: {
+      Global: 1,
+    },
+  };
+
+  await withMockedVscode(vscodeMock, async () => {
+    const extension = require("../extension") as {
+      activate(context: MockExtensionContext): void;
+    };
+    extension.activate({
+      secrets: {
+        async get(): Promise<string | undefined> {
+          return "old-token";
+        },
+        async store(key: string, value: string): Promise<void> {
+          storedSecrets.push({ key, value });
+        },
+        async delete(key: string): Promise<void> {
+          deletedSecrets.push(key);
+        },
+      },
+      subscriptions: [],
+    });
+
+    const configureGateway = commands.get("skillCapability.configureGateway");
+    assert.ok(configureGateway);
+    await configureGateway();
+  });
+
+  assert.deepEqual(configurationUpdates, [
+    { key: "gatewayUrl", value: "https://gateway.example.com" },
+    { key: "tenantId", value: "tenant-a" },
+  ]);
+  assert.deepEqual(storedSecrets, []);
+  assert.deepEqual(deletedSecrets, []);
+  assert.deepEqual(errorMessages, ["Skill Gateway token is required."]);
+  assert.deepEqual(informationMessages, []);
+});
+
 function minimalCapability(): Record<string, unknown> {
   return {
     id: "backend-rbac-review",
@@ -232,4 +411,53 @@ function hasForbiddenKey(value: unknown): boolean {
     });
   }
   return false;
+}
+
+type CommandCallback = () => unknown | Promise<unknown>;
+
+interface Disposable {
+  dispose(): void;
+}
+
+interface MockConfiguration {
+  get<T>(key: string, defaultValue: T): T;
+  update(key: string, value: string, target: unknown): Promise<void>;
+}
+
+interface MockExtensionContext {
+  secrets: {
+    get(key: string): Promise<string | undefined>;
+    store(key: string, value: string): Promise<void>;
+    delete(key: string): Promise<void>;
+  };
+  subscriptions: Disposable[];
+}
+
+type ModuleLoader = (request: string, parent: unknown, isMain: boolean) => unknown;
+
+async function withMockedVscode<T>(
+  vscodeMock: unknown,
+  run: () => Promise<T>,
+): Promise<T> {
+  const moduleWithLoad = Module as unknown as { _load: ModuleLoader };
+  const originalLoad = moduleWithLoad._load;
+  const extensionPath = require.resolve("../extension");
+  const sessionPath = require.resolve("../auth/session");
+
+  delete require.cache[extensionPath];
+  delete require.cache[sessionPath];
+  moduleWithLoad._load = (request: string, parent: unknown, isMain: boolean) => {
+    if (request === "vscode") {
+      return vscodeMock;
+    }
+    return originalLoad(request, parent, isMain);
+  };
+
+  try {
+    return await run();
+  } finally {
+    moduleWithLoad._load = originalLoad;
+    delete require.cache[extensionPath];
+    delete require.cache[sessionPath];
+  }
 }

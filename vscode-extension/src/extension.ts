@@ -115,7 +115,13 @@ async function configureGateway(session: GatewaySession): Promise<void> {
     return;
   }
 
-  await session.setToken(token);
+  const trimmedToken = token.trim();
+  if (!trimmedToken) {
+    vscode.window.showErrorMessage("Skill Gateway token is required.");
+    return;
+  }
+
+  await session.setToken(trimmedToken);
   vscode.window.showInformationMessage("Skill Gateway token saved.");
 }
 
