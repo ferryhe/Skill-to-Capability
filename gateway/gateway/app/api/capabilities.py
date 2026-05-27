@@ -1,6 +1,4 @@
 from fastapi import APIRouter
-from uuid import uuid4
-
 from .errors import api_error
 from ..capabilities.manifest import SecurityPolicy
 from ..capabilities.registry import default_registry
@@ -15,7 +13,14 @@ from ..security.input_policy import (
     validate_workspace_context_inputs,
 )
 from ..security.output_filter import filter_capability_run_result
-from ..tasks.models import CapabilityRunRequest, CapabilityTaskResult, WorkspaceSelection
+from ..tasks.models import (
+    CapabilityRunRequest,
+    CapabilityTaskQueued,
+    CapabilityTaskResult,
+    WorkspaceSelection,
+)
+from ..tasks.queue import enqueue_capability_run, is_async_requested
+from ..tasks.store import task_store
 
 router = APIRouter(prefix="/v1")
 
@@ -72,6 +77,13 @@ def run_capability(
             message=exc.message,
         ) from exc
 
+    if is_async_requested(request):
+        task = enqueue_capability_run(capability.id)
+        return CapabilityTaskQueued(
+            task_id=task.task_id,
+            status="queued",
+        ).model_dump()
+
     runner = _runner_for_capability(capability.internal.runner)
     runner_error_message: str | None = None
     try:
@@ -86,8 +98,9 @@ def run_capability(
             message=runner_error_message,
         )
     result = filter_capability_run_result(raw_result)
+    task = task_store.create_completed(capability.id, result)
     task_result = CapabilityTaskResult(
-        task_id=f"task_{uuid4().hex}",
+        task_id=task.task_id,
         status="completed",
         result=result,
     )
