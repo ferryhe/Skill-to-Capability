@@ -526,7 +526,7 @@ vscode-extension/src/test/workspaceCollector.test.ts
 **验收**
 ```bash
 cd vscode-extension
-npm test -- workspaceCollector
+npm run test:workspaceCollector
 ```
 
 **完成标准**

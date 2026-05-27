@@ -117,7 +117,8 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "test": "npm run compile && node --test out/test/client.test.js out/test/capabilityUi.test.js"
+    "test:workspaceCollector": "npm run compile && node --test out/test/workspaceCollector.test.js",
+    "test": "npm run compile && node --test out/test/client.test.js out/test/capabilityUi.test.js out/test/workspaceCollector.test.js"
   },
   "devDependencies": {
     "@types/node": "20.12.12",
