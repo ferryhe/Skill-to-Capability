@@ -35,7 +35,7 @@ MVP commands:
 
 ```json
 {
-  "skillCapability.gatewayUrl": "https://gateway.example.com",
+  "skillCapability.gatewayUrl": "http://localhost:8000",
   "skillCapability.tenantId": "default",
   "skillCapability.confirmLargeUploads": true,
   "skillCapability.maxFiles": 20,

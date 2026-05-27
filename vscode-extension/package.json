@@ -1,0 +1,97 @@
+{
+  "name": "skill-capability-vscode",
+  "displayName": "Skill Capability",
+  "description": "VSCode extension skeleton for Skill Gateway capabilities.",
+  "version": "0.1.0",
+  "publisher": "skill-capability",
+  "private": true,
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:skillCapability.configureGateway",
+    "onCommand:skillCapability.refreshCapabilities",
+    "onCommand:skillCapability.runCapability",
+    "onCommand:skillCapability.runCurrentFile",
+    "onCommand:skillCapability.runCurrentGitDiff",
+    "onCommand:skillCapability.applyLastPatch",
+    "onCommand:skillCapability.runRecommendedTests"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "skillCapability.configureGateway",
+        "title": "Skill Capability: Configure Gateway"
+      },
+      {
+        "command": "skillCapability.refreshCapabilities",
+        "title": "Skill Capability: Refresh Capabilities"
+      },
+      {
+        "command": "skillCapability.runCapability",
+        "title": "Skill Capability: Run Capability"
+      },
+      {
+        "command": "skillCapability.runCurrentFile",
+        "title": "Skill Capability: Run Current File"
+      },
+      {
+        "command": "skillCapability.runCurrentGitDiff",
+        "title": "Skill Capability: Run Current Git Diff"
+      },
+      {
+        "command": "skillCapability.applyLastPatch",
+        "title": "Skill Capability: Apply Last Patch"
+      },
+      {
+        "command": "skillCapability.runRecommendedTests",
+        "title": "Skill Capability: Run Recommended Tests"
+      }
+    ],
+    "configuration": {
+      "title": "Skill Capability",
+      "properties": {
+        "skillCapability.gatewayUrl": {
+          "type": "string",
+          "default": "http://localhost:8000",
+          "description": "Base URL for the Skill Gateway."
+        },
+        "skillCapability.tenantId": {
+          "type": "string",
+          "default": "default",
+          "description": "Tenant identifier sent to the Skill Gateway."
+        },
+        "skillCapability.confirmLargeUploads": {
+          "type": "boolean",
+          "default": true,
+          "description": "Ask for confirmation before sending large workspace context uploads."
+        },
+        "skillCapability.maxFiles": {
+          "type": "number",
+          "default": 20,
+          "minimum": 1,
+          "description": "Maximum number of workspace files to send in one request."
+        },
+        "skillCapability.maxTotalBytes": {
+          "type": "number",
+          "default": 300000,
+          "minimum": 1,
+          "description": "Maximum total bytes of workspace context to send in one request."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "test": "npm run compile && node --test out/test/client.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "20.12.12",
+    "@types/vscode": "1.90.0",
+    "typescript": "5.4.5"
+  }
+}
