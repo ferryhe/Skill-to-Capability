@@ -623,6 +623,8 @@ git diff --check
 
 ### PR F1：MCP server skeleton
 
+**状态：完成（当前 F1 分支，未声明已合并）**
+
 **范围**
 - TypeScript MCP server。
 - Gateway client。
@@ -641,9 +643,21 @@ mcp-adapter/src/gatewayClient.ts
 cd mcp-adapter
 npm install
 npm run build
+npm test
+cd ..
+python scripts/validate-contracts.py
+git diff --check
 ```
 
+**完成标准**
+- MCP adapter package 可编译并可构造 stdio server。
+- Gateway URL/token 可从 env 或 CLI 读取，CLI 优先。
+- token 不出现在日志、错误文本或 JSON 序列化输出中。
+- F2 的 5 个 tools 只保留规划元数据，不在 F1 实现业务逻辑。
+
 ### PR F2：list/run/status/result/cancel tools
+
+**状态：下一步**
 
 **范围**
 - `list_capabilities`。
