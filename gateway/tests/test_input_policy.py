@@ -27,6 +27,18 @@ def assert_policy_violation(
     assert expected_code in str(exc_info.value)
 
 
+def test_input_policy_violation_preserves_standard_exception_message_args() -> None:
+    violation = InputPolicyViolation(
+        code="policy_error",
+        message="Readable policy error",
+    )
+
+    assert violation.code == "policy_error"
+    assert violation.message == "Readable policy error"
+    assert violation.args == ("Readable policy error",)
+    assert str(violation) == "policy_error: Readable policy error"
+
+
 def test_normalizes_safe_workspace_relative_paths_to_posix_separators() -> None:
     assert normalize_workspace_relative_path("src\\app.py") == "src/app.py"
     assert normalize_workspace_relative_path("./src/../src/app.py") == "src/app.py"
@@ -159,6 +171,23 @@ def test_rejects_context_when_total_input_bytes_exceeds_policy_limit() -> None:
     assert_policy_violation(files, "max_total_input_bytes_exceeded")
 
 
+def test_rejects_oversized_secret_like_content_before_secret_scanning() -> None:
+    files = [
+        WorkspaceInputFile(
+            path="src/settings.py",
+            content='OPENAI_API_KEY = "sk-proj-secretvalue"',
+        )
+    ]
+
+    with pytest.raises(InputPolicyViolation) as exc_info:
+        validate_workspace_context_files(
+            files,
+            InputPolicy(max_total_input_bytes=10),
+        )
+
+    assert exc_info.value.code == "max_total_input_bytes_exceeded"
+
+
 def test_rejects_secret_like_content_fail_closed() -> None:
     files = [
         WorkspaceInputFile(
@@ -167,7 +196,13 @@ def test_rejects_secret_like_content_fail_closed() -> None:
         )
     ]
 
-    assert_policy_violation(files, "secret_like_content")
+    with pytest.raises(InputPolicyViolation) as exc_info:
+        validate_workspace_context_files(
+            files,
+            InputPolicy(max_total_input_bytes=100),
+        )
+
+    assert exc_info.value.code == "secret_like_content"
 
 
 @pytest.mark.parametrize(

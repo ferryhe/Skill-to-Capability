@@ -57,20 +57,22 @@ def validate_workspace_context_files(
     for file in files:
         normalized_path = normalize_workspace_relative_path(file.path)
         _reject_denylisted_file(normalized_path, policy.deny_file_globs or [])
-        _reject_secret_like_content(normalized_path, file.content)
 
-        total_bytes += len(file.content.encode("utf-8"))
+        next_total_bytes = total_bytes + len(file.content.encode("utf-8"))
         if (
             policy.max_total_input_bytes is not None
-            and total_bytes > policy.max_total_input_bytes
+            and next_total_bytes > policy.max_total_input_bytes
         ):
             raise InputPolicyViolation(
                 code="max_total_input_bytes_exceeded",
                 message=(
-                    f"Workspace context is {total_bytes} bytes; "
+                    f"Workspace context is {next_total_bytes} bytes; "
                     f"limit is {policy.max_total_input_bytes}"
                 ),
             )
+        total_bytes = next_total_bytes
+
+        _reject_secret_like_content(normalized_path, file.content)
 
         accepted.append(
             WorkspaceInputFile(
