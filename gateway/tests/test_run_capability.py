@@ -100,11 +100,14 @@ def use_capability(monkeypatch: pytest.MonkeyPatch, capability: CapabilityManife
     )
 
 
-def test_backend_rbac_review_manifest_uses_mock_runner_for_b4() -> None:
-    assert backend_rbac_capability().internal.runner == "mock"
+def test_backend_rbac_review_manifest_uses_hermes_runner_for_d3() -> None:
+    assert backend_rbac_capability().internal.runner == "hermes"
 
 
-def test_run_capability_returns_completed_mock_result_public_fields_only() -> None:
+def test_run_capability_returns_completed_mock_result_public_fields_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(runner="mock"))
     client = TestClient(app)
 
     response = client.post(
@@ -530,7 +533,10 @@ def test_run_enforces_manifest_total_input_bytes_limit_using_input_policy() -> N
     assert_no_private_response_tokens(body)
 
 
-def test_run_returns_distinct_task_ids_for_separate_runs() -> None:
+def test_run_returns_distinct_task_ids_for_separate_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(runner="mock"))
     client = TestClient(app)
 
     first_response = client.post(

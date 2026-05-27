@@ -4,8 +4,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from gateway.app.api import capabilities as capabilities_api
 from gateway.app.api import tasks as tasks_api
 from gateway.app.main import app
+from gateway.app.runners.mock_runner import MockCapabilityRunner
 from gateway.app.tasks.models import CapabilityRunResult
 from gateway.app.tasks.store import task_store
 
@@ -102,7 +104,14 @@ def test_async_run_returns_queued_task_status_and_not_completed_result() -> None
     assert_no_private_response_tokens(result_body)
 
 
-def test_sync_run_stores_completed_result_for_result_endpoint() -> None:
+def test_sync_run_stores_completed_result_for_result_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        capabilities_api,
+        "_runner_for_capability",
+        lambda _runner_name: MockCapabilityRunner(),
+    )
     client = TestClient(app)
 
     run_response = client.post(
@@ -146,7 +155,12 @@ def test_cancel_queued_task_transitions_to_cancelled() -> None:
     assert_error_shape(result_response.json(), "task_cancelled")
 
 
-def test_completed_task_cannot_be_cancelled() -> None:
+def test_completed_task_cannot_be_cancelled(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        capabilities_api,
+        "_runner_for_capability",
+        lambda _runner_name: MockCapabilityRunner(),
+    )
     client = TestClient(app)
     task_id = client.post(
         "/v1/capabilities/backend-rbac-review/run",
