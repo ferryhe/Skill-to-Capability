@@ -5,6 +5,7 @@ from .errors import api_error
 from ..capabilities.manifest import SecurityPolicy
 from ..capabilities.registry import default_registry
 from ..runners.base import CapabilityRunner
+from ..runners.hermes_runner import HermesCapabilityRunner, HermesRunnerError
 from ..runners.mock_runner import MockCapabilityRunner
 from ..security.input_policy import (
     InputPolicy,
@@ -72,7 +73,18 @@ def run_capability(
         ) from exc
 
     runner = _runner_for_capability(capability.internal.runner)
-    raw_result = runner.run(capability, request, validated_files)
+    runner_error_message: str | None = None
+    try:
+        raw_result = runner.run(capability, request, validated_files)
+    except HermesRunnerError as exc:
+        runner_error_message = str(exc)
+
+    if runner_error_message is not None:
+        raise api_error(
+            status_code=502,
+            code="hermes_runner_error",
+            message=runner_error_message,
+        )
     result = filter_capability_run_result(raw_result)
     task_result = CapabilityTaskResult(
         task_id=f"task_{uuid4().hex}",
@@ -142,6 +154,8 @@ def _validate_request_input_modes(
 def _runner_for_capability(runner_name: str) -> CapabilityRunner:
     if runner_name == "mock":
         return MockCapabilityRunner()
+    if runner_name == "hermes":
+        return HermesCapabilityRunner()
     raise api_error(
         status_code=501,
         code="unsupported_runner",

@@ -141,7 +141,7 @@ def test_run_capability_returns_completed_mock_result_public_fields_only() -> No
 def test_run_returns_public_error_for_unsupported_runner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    use_capability(monkeypatch, capability_with(runner="hermes"))
+    use_capability(monkeypatch, capability_with(runner="subprocess"))
     client = TestClient(app)
 
     response = client.post(
