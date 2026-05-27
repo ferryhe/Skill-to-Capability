@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, and the C1 SKILL.md parser/converter are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, and the C2 `skillgw` CLI are complete.
 
 ## Source of Truth
 
@@ -12,9 +12,9 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 ## Active Milestone
 
-**Milestone C: Skill-to-Capability Converter**
+**Milestone D: Real Runner and Task Lifecycle**
 
-Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is underway with C1 parser/converter support for generating safe draft capability manifests from SKILL.md frontmatter without copying skill body text.
+Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is next, starting with the Hermes runner contract.
 
 ## Completed
 
@@ -32,6 +32,7 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 - Added PR B4 mock runner flow with `POST /v1/capabilities/{id}/run`, synchronous completed task results, and manifest-backed workspace file policy enforcement.
 - Added PR B5 output filtering and redaction with Bearer/API-key/secret/path scrubbing, internal prompt/skill leakage blocking, and unified redacted `error` responses.
 - Added PR C1 SKILL.md frontmatter parser and converter that emits `CapabilityManifest` draft objects with `internal.skill_ref`, `internal.expose_skill_text = false`, and no skill body text in serialized output.
+- Added PR C2 `skillgw` CLI with `capabilities generate`, `capabilities validate`, and `capabilities list`, including public stdout guarantees and invalid-manifest nonzero exits.
 
 ## Milestone Baseline
 
@@ -41,9 +42,9 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 
 ## Next PRs
 
-1. **PR C2: skillgw CLI**
-   - Add CLI commands to generate, validate, and list capability manifests using the C1 converter.
-   - Ensure generated CLI output preserves the C1/B5 no-skill-body and no-private-internal-data guarantees.
+1. **PR D1: Hermes runner contract**
+   - Implement the mockable Hermes subprocess runner contract without requiring a local Hermes install for tests.
+   - Add strict JSON output parsing and safe failure handling.
    - Preserve the B5 handoff rule: all future runner/task result paths must pass through the output filter, and all public failures must use the redacted `error` envelope.
 
 ## Verification Baseline
@@ -112,10 +113,19 @@ python ../scripts/validate-contracts.py
 git diff --check
 ```
 
+Gateway C2 validation:
+
+```bash
+cd gateway
+python -m pytest tests/test_cli.py -q
+python -m pytest tests/ -q
+python ../scripts/validate-contracts.py
+git diff --check
+```
+
 ## Known Risks
 
 - Real Hermes runner integration is not implemented yet.
-- `skillgw` CLI is not implemented yet.
 - VSCode Extension and MCP Adapter are not bootstrapped yet.
 - No CI exists yet; validation is currently local only.
 - Example skill is intentionally non-sensitive placeholder text.
