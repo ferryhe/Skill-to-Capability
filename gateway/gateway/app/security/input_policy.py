@@ -34,16 +34,31 @@ class WorkspaceInputFile:
 
 
 @dataclass(frozen=True)
+class WorkspaceInputText:
+    label: str
+    content: str
+
+
+@dataclass(frozen=True)
 class InputPolicy:
     max_files: int | None = None
     max_total_input_bytes: int | None = None
     deny_file_globs: list[str] = field(
         default_factory=lambda: list(DEFAULT_DENY_FILE_GLOBS)
     )
+    allow_file_globs: list[str] | None = None
 
 
 def validate_workspace_context_files(
     files: list[WorkspaceInputFile],
+    policy: InputPolicy,
+) -> list[WorkspaceInputFile]:
+    return validate_workspace_context_inputs(files, [], policy)
+
+
+def validate_workspace_context_inputs(
+    files: list[WorkspaceInputFile],
+    text_inputs: list[WorkspaceInputText],
     policy: InputPolicy,
 ) -> list[WorkspaceInputFile]:
     if policy.max_files is not None and len(files) > policy.max_files:
@@ -57,20 +72,9 @@ def validate_workspace_context_files(
     for file in files:
         normalized_path = normalize_workspace_relative_path(file.path)
         _reject_denylisted_file(normalized_path, policy.deny_file_globs or [])
+        _reject_file_outside_allowlist(normalized_path, policy.allow_file_globs)
 
-        next_total_bytes = total_bytes + len(file.content.encode("utf-8"))
-        if (
-            policy.max_total_input_bytes is not None
-            and next_total_bytes > policy.max_total_input_bytes
-        ):
-            raise InputPolicyViolation(
-                code="max_total_input_bytes_exceeded",
-                message=(
-                    f"Workspace context is {next_total_bytes} bytes; "
-                    f"limit is {policy.max_total_input_bytes}"
-                ),
-            )
-        total_bytes = next_total_bytes
+        total_bytes = _add_input_bytes(total_bytes, file.content, policy)
 
         _reject_secret_like_content(normalized_path, file.content)
 
@@ -82,21 +86,64 @@ def validate_workspace_context_files(
             )
         )
 
+    for text_input in text_inputs:
+        total_bytes = _add_input_bytes(total_bytes, text_input.content, policy)
+        _reject_secret_like_content(text_input.label, text_input.content)
+
     return accepted
 
 
 def _reject_denylisted_file(path: str, deny_file_globs: list[str]) -> None:
-    comparable_path = path.lower()
     for pattern in deny_file_globs:
-        normalized_pattern = pattern.replace("\\", "/").lower()
-        root_pattern = normalized_pattern.removeprefix("**/")
-        if fnmatchcase(comparable_path, normalized_pattern) or fnmatchcase(
-            comparable_path, root_pattern
-        ):
+        if _matches_file_glob(path, pattern):
             raise InputPolicyViolation(
                 code="denylisted_file",
                 message=f"Workspace file is denied by policy: {path}",
             )
+
+
+def _reject_file_outside_allowlist(
+    path: str,
+    allow_file_globs: list[str] | None,
+) -> None:
+    if allow_file_globs is None:
+        return
+    if any(_matches_file_glob(path, pattern) for pattern in allow_file_globs):
+        return
+    raise InputPolicyViolation(
+        code="file_not_allowed",
+        message=f"Workspace file is not allowed by policy: {path}",
+    )
+
+
+def _matches_file_glob(path: str, pattern: str) -> bool:
+    comparable_path = path.lower()
+    normalized_pattern = pattern.replace("\\", "/").lower()
+    root_pattern = normalized_pattern.removeprefix("**/")
+    return fnmatchcase(comparable_path, normalized_pattern) or fnmatchcase(
+        comparable_path,
+        root_pattern,
+    )
+
+
+def _add_input_bytes(
+    current_total_bytes: int,
+    content: str,
+    policy: InputPolicy,
+) -> int:
+    next_total_bytes = current_total_bytes + len(content.encode("utf-8"))
+    if (
+        policy.max_total_input_bytes is not None
+        and next_total_bytes > policy.max_total_input_bytes
+    ):
+        raise InputPolicyViolation(
+            code="max_total_input_bytes_exceeded",
+            message=(
+                f"Workspace context is {next_total_bytes} bytes; "
+                f"limit is {policy.max_total_input_bytes}"
+            ),
+        )
+    return next_total_bytes
 
 
 def _reject_secret_like_content(path: str, content: str) -> None:

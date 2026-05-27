@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, and Gateway input policy utilities are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, and the Gateway mock run endpoint are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 **Milestone B: Gateway MVP**
 
-Gateway MVP work is underway with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, and input policy validation complete.
+Gateway MVP work is underway with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, and mock runner flow complete.
 
 ## Completed
 
@@ -29,6 +29,7 @@ Gateway MVP work is underway with the minimal FastAPI service skeleton, health-c
 - Added PR B1 FastAPI Gateway skeleton with `/health` endpoint and pytest health test.
 - Added PR B2 capability manifest registry with YAML loading, public view stripping, and `/v1/capabilities` endpoints.
 - Added PR B3 input policy utilities with workspace-relative path validation, deny globs, byte limits, and fail-closed secret-like content rejection.
+- Added PR B4 mock runner flow with `POST /v1/capabilities/{id}/run`, synchronous completed task results, and manifest-backed workspace file policy enforcement.
 
 ## Milestone Baseline
 
@@ -38,10 +39,7 @@ Gateway MVP work is underway with the minimal FastAPI service skeleton, health-c
 
 ## Next PRs
 
-1. **PR B4: Mock runner and run endpoint**
-   - Add runner interface, mock runner, and `POST /v1/capabilities/{id}/run`.
-
-2. **PR B5: Output filter and redaction**
+1. **PR B5: Output filter and redaction**
    - Add output redaction, skill/internal prompt leakage filtering, and unified redacted error responses.
 
 ## Verification Baseline
@@ -78,6 +76,14 @@ Gateway B3 validation:
 ```bash
 cd gateway
 python -m pytest tests/test_input_policy.py -q
+python -m pytest tests/ -q
+```
+
+Gateway B4 validation:
+
+```bash
+cd gateway
+python -m pytest tests/test_run_capability.py -q
 python -m pytest tests/ -q
 ```
 

@@ -150,6 +150,27 @@ def test_rejects_denylisted_file_globs_case_insensitively(denied_path: str) -> N
     assert denied_path in str(exc_info.value)
 
 
+def test_rejects_files_outside_configured_allowlist() -> None:
+    with pytest.raises(InputPolicyViolation) as exc_info:
+        validate_workspace_context_files(
+            [WorkspaceInputFile(path="notes.txt", content="plain text")],
+            InputPolicy(allow_file_globs=["**/*.py", "**/*.md"]),
+        )
+
+    assert exc_info.value.code == "file_not_allowed"
+    assert "notes.txt" in str(exc_info.value)
+
+
+def test_denylist_takes_precedence_over_allowlist() -> None:
+    with pytest.raises(InputPolicyViolation) as exc_info:
+        validate_workspace_context_files(
+            [WorkspaceInputFile(path=".env", content="not relevant")],
+            InputPolicy(deny_file_globs=["**/.env"], allow_file_globs=["**/*"]),
+        )
+
+    assert exc_info.value.code == "denylisted_file"
+
+
 def test_rejects_context_when_file_count_exceeds_policy_limit() -> None:
     files = [
         WorkspaceInputFile(path="a.py", content="a"),
