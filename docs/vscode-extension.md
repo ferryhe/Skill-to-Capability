@@ -47,7 +47,7 @@ Token 不应存在普通 settings JSON；优先使用 VSCode secret storage。
 
 ## Context Collector
 
-MVP 支持：
+MVP 支持的 context 必须映射到 `run-request.schema.json`：
 
 - current file
 - selected files from explorer
@@ -64,6 +64,40 @@ MVP 支持：
 - `credentials.json`
 - binary files
 - files over configured size
+
+Gateway request body example:
+
+```json
+{
+  "workspace": {
+    "name": "sample-workspace",
+    "root_uri": "file:///workspace/sample-workspace",
+    "git_branch": "feat/rbac-tightening",
+    "git_diff": "diff --git a/app.py b/app.py\n",
+    "files": [
+      {
+        "path": "app.py",
+        "content": "def hello():\n    return 'world'\n"
+      }
+    ],
+    "selection": {
+      "path": "app.py",
+      "start_line": 1,
+      "end_line": 2,
+      "content": "def hello():\n    return 'world'\n"
+    }
+  },
+  "instruction": "Review public payload and RBAC boundaries.",
+  "options": {
+    "return_patch": true,
+    "strictness": "high"
+  },
+  "client": {
+    "type": "vscode",
+    "version": "0.1.0"
+  }
+}
+```
 
 ## Patch Apply
 
@@ -86,20 +120,46 @@ Report webview 显示：
 - summary
 - findings by severity/path
 - safe_rationale
+- confidence when present
 - patch preview button
 - recommended tests
-- task metadata
+- artifacts public metadata
+- task metadata from task endpoints
 
 不得显示：
 
 - internal manifest
 - prompt
-- skill body
+- skill body or `skill_text`
 - raw trace
+
+Expected run result shape:
+
+```json
+{
+  "summary": "Found one RBAC boundary issue and proposed a focused patch.",
+  "findings": [
+    {
+      "severity": "high",
+      "path": "app.py",
+      "line": 12,
+      "title": "Public endpoint returns sensitive field",
+      "message": "The response should omit internal_path for unauthenticated callers."
+    }
+  ],
+  "patch": "diff --git a/app.py b/app.py\n",
+  "recommended_tests": [
+    "pytest tests/test_rbac.py -q"
+  ],
+  "artifacts": [],
+  "safe_rationale": "The patch removes a sensitive field from the public response.",
+  "confidence": 0.82
+}
+```
 
 ## Testing targets
 
 - API client maps Gateway errors correctly。
 - context collector respects denylist and byte limits。
 - patch apply rejects workspace escape。
-- UI renderer ignores internal fields even if server accidentally returns them。
+- UI renderer treats any `internal`, `prompt`, `trace`, or `skill_text` field as a protocol violation and does not render it。
