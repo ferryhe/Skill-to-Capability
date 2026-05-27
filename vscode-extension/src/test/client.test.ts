@@ -312,6 +312,21 @@ test("configureGateway rejects blank replacement tokens without deleting the exi
       },
     },
     window: {
+      createOutputChannel(): Disposable & {
+        append(value: string): void;
+        clear(): void;
+        show(preserveFocus?: boolean): void;
+      } {
+        return {
+          append() {},
+          clear() {},
+          show() {},
+          dispose() {},
+        };
+      },
+      registerTreeDataProvider(): Disposable {
+        return { dispose() {} };
+      },
       async showInputBox(): Promise<string | undefined> {
         return inputValues.shift();
       },
@@ -329,6 +344,24 @@ test("configureGateway rejects blank replacement tokens without deleting the exi
     },
     ConfigurationTarget: {
       Global: 1,
+    },
+    EventEmitter: class EventEmitter<T> {
+      readonly event = (_listener: (value: T) => void): Disposable => ({ dispose() {} });
+
+      fire(_value?: T): void {}
+    },
+    TreeItem: class TreeItem {
+      constructor(
+        readonly label: string,
+        readonly collapsibleState: number,
+      ) {}
+    },
+    TreeItemCollapsibleState: {
+      None: 0,
+      Collapsed: 1,
+    },
+    ThemeIcon: class ThemeIcon {
+      constructor(readonly id: string) {}
     },
   };
 
