@@ -3,12 +3,12 @@ import * as vscode from "vscode";
 import { capabilityTreeViewId, CapabilityTreeProvider } from "./capabilities/treeProvider";
 import { registerCapabilityCommands } from "./commands/refreshCapabilities";
 import { registerRunCapabilityCommands } from "./commands/runCapability";
+import { registerApplyPatchCommand } from "./commands/applyPatch";
 import { createGatewaySession, GatewaySession } from "./auth/session";
 
 const configurationSection = "skillCapability";
 
 const placeholderCommands = [
-  ["skillCapability.applyLastPatch", "Apply last patch"],
   ["skillCapability.runRecommendedTests", "Run recommended tests"],
 ] as const;
 
@@ -29,6 +29,7 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 
   registerCapabilityCommands(context, session, capabilityTreeProvider);
+  registerApplyPatchCommand(context);
   registerRunCapabilityCommands(context, session, capabilityTreeProvider);
 
   for (const [command, label] of placeholderCommands) {

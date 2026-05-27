@@ -73,15 +73,16 @@ export function toWorkspacePath(value: string): string {
 
 function isDeniedWorkspacePath(relativePath: string): boolean {
   const parts = relativePath.split("/");
-  const basename = parts[parts.length - 1] ?? "";
+  const lowerParts = parts.map((part) => part.toLowerCase());
+  const basename = lowerParts[lowerParts.length - 1] ?? "";
   return basename === ".env"
     || basename.startsWith(".env.")
     || basename.endsWith(".pem")
     || basename.endsWith(".key")
     || basename === "id_rsa"
     || basename === "credentials.json"
-    || parts.includes("node_modules")
-    || parts.includes(".git");
+    || lowerParts.includes("node_modules")
+    || lowerParts.includes(".git");
 }
 
 function formatPath(candidatePath: string): string {

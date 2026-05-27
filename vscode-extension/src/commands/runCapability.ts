@@ -27,6 +27,7 @@ export interface RunCommandDependencies {
     runCapability(id: string, request: CapabilityRunRequest): Promise<CapabilityRunResponse | unknown>;
   };
   renderReport(report: CapabilityRunResponse | unknown): void;
+  rememberPatch?(report: CapabilityRunResponse | unknown, workspaceFolder?: vscode.WorkspaceFolder): void;
   clientVersion?: string;
 }
 
@@ -38,6 +39,10 @@ export function registerRunCapabilityCommands(
   const deps: RunCommandDependencies = {
     createClient: () => createGatewayClient(session),
     renderReport: (report) => showCapabilityReportPanel(report as CapabilityRunResponse),
+    rememberPatch: (report, workspaceFolder) => {
+      const { rememberRunPatch } = require("./applyPatch") as typeof import("./applyPatch");
+      rememberRunPatch(report, workspaceFolder);
+    },
     clientVersion: vscode.version,
   };
 
@@ -145,6 +150,7 @@ async function runCapabilityWithMode(
 
   try {
     const report = await deps.createClient().runCapability(selectedCapability.id, request);
+    deps.rememberPatch?.(report, contextResult.workspaceFolder);
     deps.renderReport(report);
   } catch (error) {
     vscode.window.showErrorMessage(gatewayErrorMessage(error));
