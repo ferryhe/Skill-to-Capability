@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, the D2 task store/async status API, the D3 real Hermes smoke script, the E1 VSCode extension skeleton/settings/auth placeholder, the E2 VSCode capability list UI, the E3 VSCode workspace context collector, the E4 VSCode run capability/report panel flow, the E5 VSCode patch preview/apply flow, the E6 VSCode recommended tests execution flow, and the F1 MCP server skeleton are complete on their implementation branches.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, the D2 task store/async status API, the D3 real Hermes smoke script, the E1 VSCode extension skeleton/settings/auth placeholder, the E2 VSCode capability list UI, the E3 VSCode workspace context collector, the E4 VSCode run capability/report panel flow, the E5 VSCode patch preview/apply flow, the E6 VSCode recommended tests execution flow, the F1 MCP server skeleton, and the F2 MCP list/run/status/result/cancel tools are complete on their implementation branches.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 **Milestone F: MCP Adapter MVP**
 
-Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is complete with the D1 mockable Hermes runner contract, D2 task store/status lifecycle, and D3 real Hermes smoke script. Milestone E is complete with the VSCode extension package skeleton, settings contributions, SecretStorage token placeholder, public-only Gateway client, command palette capability refresh, Explorer tree view, public-field-only capability detail output, bounded workspace context collection for current file, selection, selected files, and git diff flows, Gateway run command wiring, a public-only report webview, remembered public patch output, diff preview, user confirmation, VSCode WorkspaceEdit patch application with workspace path policy checks, and user-confirmed recommended test execution in a workspace-scoped VSCode terminal. Milestone F has the F1 MCP adapter bootstrap in place with a TypeScript package, stdio server construction, Gateway client, env/CLI config handling, public-field stripping, and token redaction tests.
+Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is complete with the D1 mockable Hermes runner contract, D2 task store/status lifecycle, and D3 real Hermes smoke script. Milestone E is complete with the VSCode extension package skeleton, settings contributions, SecretStorage token placeholder, public-only Gateway client, command palette capability refresh, Explorer tree view, public-field-only capability detail output, bounded workspace context collection for current file, selection, selected files, and git diff flows, Gateway run command wiring, a public-only report webview, remembered public patch output, diff preview, user confirmation, VSCode WorkspaceEdit patch application with workspace path policy checks, and user-confirmed recommended test execution in a workspace-scoped VSCode terminal. Milestone F has the F1 MCP adapter bootstrap and F2 tool surface in place with a TypeScript package, stdio server construction, Gateway client, env/CLI config handling, five registered public MCP tools, public-field stripping, and token/error redaction tests.
 
 ## Completed
 
@@ -43,6 +43,7 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 - Added PR E5 VSCode patch preview/apply with completed-report `result.patch` memory, diff preview, modal user confirmation, unified diff hunk validation, denylisted/path traversal rejection, and VSCode WorkspaceEdit full-document replacements scoped to the remembered workspace folder.
 - Added PR E6 VSCode recommended tests execution with completed-report `result.recommended_tests` memory, trimmed command selection, workspace re-resolution, multi-root workspace picking, modal user confirmation, and ordered command execution in a VSCode terminal rooted at the selected workspace.
 - Added PR F1 MCP adapter bootstrap with a TypeScript package, MCP stdio server skeleton, env/CLI Gateway URL/token config parsing, public-only Gateway client list call, redacted Gateway/client errors, and tests that keep the five MCP tools reserved for F2.
+- Added PR F2 MCP adapter tools on branch `codex/pr-f2-mcp-tools` with `list_capabilities`, `run_capability`, `get_task_status`, `get_task_result`, and `cancel_task`, routed through the Gateway client with nested `request` forwarding for runs, recursive public-only response filtering, safe tool descriptions, and sanitized MCP tool error results.
 
 ## Milestone Baseline
 
@@ -52,10 +53,9 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 
 ## Next PRs
 
-1. **PR F2: MCP list/run/status/result/cancel tools**
-   - Implement `list_capabilities`, `run_capability`, `get_task_status`, `get_task_result`, and `cancel_task`.
-   - Route through the F1 Gateway client and preserve public-only output filtering.
-   - Keep tool descriptions free of internal workflow, prompt, runner, or skill body details.
+1. **PR F3: Hermes/Cline smoke docs**
+   - Add MCP configuration examples and local smoke steps for Hermes and Cline/Roo-style clients.
+   - Keep examples free of private skills, prompts, runner output, provider credentials, and tenant secrets.
 
 ## Verification Baseline
 
@@ -246,12 +246,23 @@ python scripts/validate-contracts.py
 git diff --check
 ```
 
+MCP Adapter F2 validation:
+
+```bash
+cd mcp-adapter
+npm run build
+npm test
+cd ..
+python scripts/validate-contracts.py
+git diff --check
+```
+
 ## Known Risks
 
 - Real Hermes smoke script exists, but actual execution requires a local Hermes CLI and developer-specific Hermes configuration; because `backend-rbac-review` now defaults to the Hermes runner, Gateway synchronous `/v1/capabilities/backend-rbac-review/run` calls also return a safe 502 when Hermes is unavailable.
 - Async queued tasks do not have a background worker yet; D2 only records queued lifecycle state and exposes status/cancel/result APIs.
 - VSCode Extension currently has the E1 skeleton/settings/auth/client baseline, E2 capability list UI, E3 workspace context collector, E4 Gateway run/report panel flow, E5 patch preview/apply flow, and E6 user-confirmed recommended tests execution.
 - E5 applies only existing-file unified diff hunks after preview and confirmation; file create/delete/rename support remains intentionally out of scope.
-- MCP Adapter has only the F1 bootstrap/server skeleton; the five user-facing MCP tools remain intentionally out of scope until F2.
+- MCP Adapter F2 registers the five user-facing MCP tools on the implementation branch; real client smoke coverage for Hermes/Cline-style MCP configuration remains for F3.
 - No CI exists yet; validation is currently local only.
 - Example skill is intentionally non-sensitive placeholder text.

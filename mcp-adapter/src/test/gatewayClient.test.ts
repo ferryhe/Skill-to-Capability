@@ -50,6 +50,103 @@ test("listCapabilities calls the public Gateway endpoint with normalized URL and
   assert.equal(hasForbiddenKey(capabilities), false);
 });
 
+test("GatewayClient F2 methods call expected Gateway endpoints and bodies", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const fetch: FetchLike = async (url, init) => {
+    requests.push({ url: String(url), init });
+    return jsonResponse(200, {
+      task_id: "task-1",
+      status: "completed",
+      summary: "Public summary.",
+    });
+  };
+  const client = new GatewayClient({
+    gatewayUrl: "https://gateway.example.com",
+    fetch,
+  });
+
+  await client.runCapability("backend-rbac-review", {
+    instruction: "Review this.",
+    options: { strictness: "high" },
+  });
+  await client.getTaskStatus("task-1");
+  await client.getTaskResult("task-1");
+  await client.cancelTask("task-1");
+
+  assertRequest(requests[0], "POST", "https://gateway.example.com/v1/capabilities/backend-rbac-review/run", {
+    instruction: "Review this.",
+    options: { strictness: "high" },
+  });
+  assertRequest(requests[1], "GET", "https://gateway.example.com/v1/tasks/task-1");
+  assertRequest(requests[2], "GET", "https://gateway.example.com/v1/tasks/task-1/result");
+  assertRequest(requests[3], "POST", "https://gateway.example.com/v1/tasks/task-1/cancel");
+});
+
+test("GatewayClient encodes capability and task IDs as path segments", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const fetch: FetchLike = async (url, init) => {
+    requests.push({ url: String(url), init });
+    return jsonResponse(200, {
+      task_id: "task/a b",
+      status: "completed",
+    });
+  };
+  const client = new GatewayClient({
+    gatewayUrl: "https://gateway.example.com",
+    fetch,
+  });
+
+  await client.runCapability("team/a b", { instruction: "Review this." });
+  await client.getTaskStatus("task/a b");
+  await client.getTaskResult("task/a b");
+  await client.cancelTask("task/a b");
+
+  assertRequest(requests[0], "POST", "https://gateway.example.com/v1/capabilities/team%2Fa%20b/run", {
+    instruction: "Review this.",
+  });
+  assertRequest(requests[1], "GET", "https://gateway.example.com/v1/tasks/task%2Fa%20b");
+  assertRequest(requests[2], "GET", "https://gateway.example.com/v1/tasks/task%2Fa%20b/result");
+  assertRequest(requests[3], "POST", "https://gateway.example.com/v1/tasks/task%2Fa%20b/cancel");
+});
+
+test("GatewayClient F2 methods strip server-only fields from public responses", async () => {
+  const fetch: FetchLike = async () =>
+    jsonResponse(200, {
+      task_id: "task-1",
+      status: "completed",
+      summary: "Public summary.",
+      nested: {
+        safe: true,
+        internal: { skill_ref: "private" },
+        provider: "private-provider",
+        modelName: "private-model",
+      },
+      findings: [
+        {
+          title: "Public finding",
+          prompt: "private prompt",
+          raw_runner_output: "private runner output",
+        },
+      ],
+    });
+  const client = new GatewayClient({
+    gatewayUrl: "https://gateway.example.com",
+    fetch,
+  });
+
+  const result = await client.getTaskResult("task-1");
+
+  assert.deepEqual(result, {
+    task_id: "task-1",
+    status: "completed",
+    summary: "Public summary.",
+    nested: { safe: true },
+    findings: [{ title: "Public finding" }],
+  });
+  assert.equal(hasForbiddenKey(result), false);
+  assert.equal(JSON.stringify(result).includes("private"), false);
+});
+
 test("GatewayClient validates Gateway URL schemes", () => {
   assert.throws(
     () =>
@@ -62,6 +159,30 @@ test("GatewayClient validates Gateway URL schemes", () => {
       return true;
     },
   );
+});
+
+test("GatewayClient rejects Gateway URLs with query parameters or fragments", () => {
+  for (const gatewayUrl of [
+    "https://gateway.example.com?token=secret-token",
+    "https://gateway.example.com#secret-token",
+  ]) {
+    assert.throws(
+      () =>
+        new GatewayClient({
+          gatewayUrl,
+        }),
+      (error) => {
+        assert.equal(error instanceof GatewayClientError, true);
+        assert.equal((error as GatewayClientError).code, "invalid_configuration");
+        assert.equal(
+          (error as Error).message,
+          "Gateway URL must not include query parameters or fragments.",
+        );
+        assert.equal(String(error).includes("secret-token"), false);
+        return true;
+      },
+    );
+  }
 });
 
 test("GatewayClient redacts tokens from Gateway error messages and details", async () => {
@@ -233,13 +354,38 @@ function headerValue(init: RequestInit | undefined, name: string): string | unde
   return headers?.[name];
 }
 
+function assertRequest(
+  request: { url: string; init?: RequestInit },
+  method: string,
+  url: string,
+  body?: unknown,
+): void {
+  assert.equal(request.url, url);
+  assert.equal(request.init?.method, method);
+  if (body === undefined) {
+    assert.equal(request.init?.body, undefined);
+  } else {
+    assert.equal(headerValue(request.init, "Content-Type"), "application/json");
+    assert.deepEqual(JSON.parse(String(request.init?.body)), body);
+  }
+}
+
 function hasForbiddenKey(value: unknown): boolean {
   if (Array.isArray(value)) {
     return value.some(hasForbiddenKey);
   }
   if (value && typeof value === "object") {
     return Object.entries(value).some(([key, nested]) => {
-      return ["internal", "prompt", "trace", "skill_text", "skill_ref"].includes(key)
+      return [
+        "internal",
+        "prompt",
+        "trace",
+        "skill_text",
+        "skill_ref",
+        "raw_runner_output",
+        "provider",
+        "modelName",
+      ].includes(key)
         || hasForbiddenKey(nested);
     });
   }

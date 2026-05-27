@@ -35,6 +35,8 @@ export interface PublicCapability {
   security?: JsonObject;
 }
 
+export type PublicGatewayObject = JsonObject;
+
 export class GatewayClientError extends Error {
   readonly status: number;
   readonly code: string;
@@ -72,6 +74,42 @@ export class GatewayClient {
     return body.capabilities.map((capability) => this.toPublicCapability(capability));
   }
 
+  async runCapability(capabilityId: string, request: JsonObject): Promise<PublicGatewayObject> {
+    return this.requestPublicObject(
+      `/v1/capabilities/${encodePathSegment(capabilityId)}/run`,
+      "POST",
+      request,
+      "Gateway run response must be an object.",
+    );
+  }
+
+  async getTaskStatus(taskId: string): Promise<PublicGatewayObject> {
+    return this.requestPublicObject(
+      `/v1/tasks/${encodePathSegment(taskId)}`,
+      "GET",
+      undefined,
+      "Gateway task status response must be an object.",
+    );
+  }
+
+  async getTaskResult(taskId: string): Promise<PublicGatewayObject> {
+    return this.requestPublicObject(
+      `/v1/tasks/${encodePathSegment(taskId)}/result`,
+      "GET",
+      undefined,
+      "Gateway task result response must be an object.",
+    );
+  }
+
+  async cancelTask(taskId: string): Promise<PublicGatewayObject> {
+    return this.requestPublicObject(
+      `/v1/tasks/${encodePathSegment(taskId)}/cancel`,
+      "POST",
+      undefined,
+      "Gateway cancel response must be an object.",
+    );
+  }
+
   toJSON(): JsonObject {
     return {
       gatewayUrl: this.gatewayUrl,
@@ -79,12 +117,18 @@ export class GatewayClient {
     };
   }
 
-  private async requestJson(path: string): Promise<unknown> {
+  private async requestJson(path: string, method = "GET", body?: JsonObject): Promise<unknown> {
     let response: GatewayFetchResponse;
     try {
+      const init: RequestInit = {
+        method,
+        headers: this.buildHeaders(body !== undefined),
+      };
+      if (body !== undefined) {
+        init.body = JSON.stringify(body);
+      }
       response = await this.fetchImpl(`${this.gatewayUrl}${path}`, {
-        method: "GET",
-        headers: this.buildHeaders(),
+        ...init,
       });
     } catch {
       throw new GatewayClientError(
@@ -94,17 +138,35 @@ export class GatewayClient {
       );
     }
 
-    const body = await parseJsonResponse(response);
+    const responseBody = await parseJsonResponse(response);
     if (!response.ok) {
-      throw this.mapGatewayError(response, body);
+      throw this.mapGatewayError(response, responseBody);
     }
-    return body;
+    return responseBody;
   }
 
-  private buildHeaders(): Record<string, string> {
+  private async requestPublicObject(
+    path: string,
+    method: "GET" | "POST",
+    body: JsonObject | undefined,
+    invalidMessage: string,
+  ): Promise<PublicGatewayObject> {
+    const responseBody = await this.requestJson(path, method, body);
+    const sanitized = this.publicValue(responseBody);
+    if (!isJsonObject(sanitized)) {
+      throw this.invalidResponse(invalidMessage);
+    }
+    return sanitized;
+  }
+
+  private buildHeaders(hasBody = false): Record<string, string> {
     const headers: Record<string, string> = {
       Accept: "application/json",
     };
+
+    if (hasBody) {
+      headers["Content-Type"] = "application/json";
+    }
 
     if (this.tenantId) {
       headers["X-Tenant-Id"] = this.tenantId;
@@ -120,7 +182,7 @@ export class GatewayClient {
   }
 
   private toPublicCapability(value: unknown): PublicCapability {
-    const sanitized = stripServerOnlyFields(value);
+    const sanitized = this.publicValue(value);
     if (!isJsonObject(sanitized)) {
       throw this.invalidResponse("Gateway capability response must be an object.");
     }
@@ -185,6 +247,10 @@ export class GatewayClient {
     return redactSensitiveValue(value, this.secretCandidates());
   }
 
+  private publicValue(value: unknown): unknown {
+    return this.redactValue(stripServerOnlyFields(value));
+  }
+
   private secretCandidates(): string[] {
     if (!this.#token) {
       return [];
@@ -197,6 +263,10 @@ export class GatewayClient {
     }
     return candidates;
   }
+}
+
+function encodePathSegment(value: string): string {
+  return encodeURIComponent(value);
 }
 
 function normalizeGatewayUrl(value: string): string {
@@ -217,6 +287,14 @@ function normalizeGatewayUrl(value: string): string {
       0,
       "invalid_configuration",
       "Gateway URL must use http or https.",
+    );
+  }
+
+  if (parsed.search || parsed.hash) {
+    throw new GatewayClientError(
+      0,
+      "invalid_configuration",
+      "Gateway URL must not include query parameters or fragments.",
     );
   }
 
