@@ -233,19 +233,20 @@ function applyHunks(
   }
 
   newLines.push(...oldLines.lines.slice(sourceIndex));
-  return joinPatchText(newLines, oldLines.hasFinalNewline);
+  return joinPatchText(newLines, oldLines.hasFinalNewline, oldLines.eol);
 }
 
-function splitPatchText(text: string): { lines: string[]; hasFinalNewline: boolean } {
+function splitPatchText(text: string): { lines: string[]; hasFinalNewline: boolean; eol: string } {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const normalized = text.replace(/\r\n/g, "\n");
   const hasFinalNewline = normalized.endsWith("\n");
   const lines = normalized.split("\n");
   if (hasFinalNewline) {
     lines.pop();
   }
-  return { lines, hasFinalNewline };
+  return { lines, hasFinalNewline, eol };
 }
 
-function joinPatchText(lines: string[], hasFinalNewline: boolean): string {
-  return `${lines.join("\n")}${hasFinalNewline ? "\n" : ""}`;
+function joinPatchText(lines: string[], hasFinalNewline: boolean, eol: string): string {
+  return `${lines.join(eol)}${hasFinalNewline ? eol : ""}`;
 }

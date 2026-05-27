@@ -75,7 +75,7 @@ export async function applyLastPatch(): Promise<void> {
       if (document.isDirty) {
         throw new Error(`${plannedEdit.relativePath} has unsaved changes. Save or discard them before applying the patch.`);
       }
-      if (document.getText() !== plannedEdit.oldText) {
+      if (normalizeLineEndings(document.getText()) !== normalizeLineEndings(plannedEdit.oldText)) {
         throw new Error(`${plannedEdit.relativePath} changed since the patch was planned. Re-run the capability before applying.`);
       }
       edit.replace(uri, fullDocumentRange(vscodeApi, document), plannedEdit.newText);
@@ -140,6 +140,10 @@ function sameFsPath(left: string, right: string): boolean {
 function pathForCompare(value: string): string {
   const normalized = path.resolve(value);
   return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+}
+
+function normalizeLineEndings(value: string): string {
+  return value.replace(/\r\n/g, "\n");
 }
 
 function fullDocumentRange(

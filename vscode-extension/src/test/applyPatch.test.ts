@@ -33,6 +33,28 @@ test("unified diff patch plans and applies to a workspace file", async () => {
   });
 });
 
+test("applyUnifiedDiffToWorkspace preserves CRLF line endings when patching a CRLF file", async () => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const filePath = path.join(workspaceRoot, "src", "app.ts");
+    await writeTextFile(filePath, "first\r\nold\r\nlast\r\n");
+    const patch = [
+      "diff --git a/src/app.ts b/src/app.ts",
+      "--- a/src/app.ts",
+      "+++ b/src/app.ts",
+      "@@ -1,3 +1,3 @@",
+      " first",
+      "-old",
+      "+new",
+      " last",
+      "",
+    ].join("\n");
+
+    await applyUnifiedDiffToWorkspace(workspaceRoot, patch);
+
+    assert.equal(await readFile(filePath, "utf8"), "first\r\nnew\r\nlast\r\n");
+  });
+});
+
 test("plain unified diff without git header plans and applies", async () => {
   await withTempWorkspace(async (workspaceRoot) => {
     const filePath = path.join(workspaceRoot, "src", "app.ts");
@@ -297,6 +319,38 @@ test("apply command cancel confirmation does not call applyEdit", async () => {
 
     assert.equal(harness.applyEditCalls, 0);
     assert.equal(await readFile(filePath, "utf8"), "old\n");
+  });
+});
+
+test("apply command accepts unchanged CRLF disk content when document text is normalized to LF", async () => {
+  await withTempWorkspace(async (workspaceRoot) => {
+    const filePath = path.join(workspaceRoot, "src", "app.ts");
+    await writeTextFile(filePath, "first\r\nold\r\nlast\r\n");
+    const patch = [
+      "diff --git a/src/app.ts b/src/app.ts",
+      "--- a/src/app.ts",
+      "+++ b/src/app.ts",
+      "@@ -1,3 +1,3 @@",
+      " first",
+      "-old",
+      "+new",
+      " last",
+      "",
+    ].join("\n");
+    const harness = createApplyHarness({
+      workspaceFolders: [{ name: "workspace", root: workspaceRoot }],
+      confirmResponse: "Apply patch",
+      openDocuments: {
+        [filePath]: { text: "first\nold\nlast\n", isDirty: false },
+      },
+    });
+    harness.rememberPatch(completedReportWithPatch(patch), toWorkspaceFolder("workspace", workspaceRoot));
+
+    await harness.applyLastPatch();
+
+    assert.equal(harness.applyEditCalls, 1);
+    assert.deepEqual(harness.errors, []);
+    assert.equal(await readFile(filePath, "utf8"), "first\r\nnew\r\nlast\r\n");
   });
 });
 
