@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, and the Gateway mock run endpoint are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, and Gateway output redaction/error filtering are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 **Milestone B: Gateway MVP**
 
-Gateway MVP work is underway with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, and mock runner flow complete.
+Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place.
 
 ## Completed
 
@@ -30,6 +30,7 @@ Gateway MVP work is underway with the minimal FastAPI service skeleton, health-c
 - Added PR B2 capability manifest registry with YAML loading, public view stripping, and `/v1/capabilities` endpoints.
 - Added PR B3 input policy utilities with workspace-relative path validation, deny globs, byte limits, and fail-closed secret-like content rejection.
 - Added PR B4 mock runner flow with `POST /v1/capabilities/{id}/run`, synchronous completed task results, and manifest-backed workspace file policy enforcement.
+- Added PR B5 output filtering and redaction with Bearer/API-key/secret/path scrubbing, internal prompt/skill leakage blocking, and unified redacted `error` responses.
 
 ## Milestone Baseline
 
@@ -39,8 +40,9 @@ Gateway MVP work is underway with the minimal FastAPI service skeleton, health-c
 
 ## Next PRs
 
-1. **PR B5: Output filter and redaction**
-   - Add output redaction, skill/internal prompt leakage filtering, and unified redacted error responses.
+1. **PR C1: SKILL.md parser and converter**
+   - Generate capability manifest drafts from skill frontmatter without copying skill body text.
+   - Preserve the B5 handoff rule: all future runner/task result paths must pass through the output filter, and all public failures must use the redacted `error` envelope.
 
 ## Verification Baseline
 
@@ -85,6 +87,17 @@ Gateway B4 validation:
 cd gateway
 python -m pytest tests/test_run_capability.py -q
 python -m pytest tests/ -q
+```
+
+Gateway B5 validation:
+
+```bash
+cd gateway
+python -m pytest tests/test_output_filter.py tests/test_error_redaction.py -q
+python -m pytest tests/test_run_capability.py -q
+python -m pytest tests/ -q
+python ../scripts/validate-contracts.py
+git diff --check
 ```
 
 ## Known Risks
