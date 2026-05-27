@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, and the Gateway capability registry are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, and Gateway input policy utilities are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 **Milestone B: Gateway MVP**
 
-Gateway MVP work is underway with the minimal FastAPI service skeleton, health-check validation, and capability registry endpoints complete.
+Gateway MVP work is underway with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, and input policy validation complete.
 
 ## Completed
 
@@ -28,6 +28,7 @@ Gateway MVP work is underway with the minimal FastAPI service skeleton, health-c
 - Aligned API, VSCode, and MCP contract docs with current schemas and fixtures.
 - Added PR B1 FastAPI Gateway skeleton with `/health` endpoint and pytest health test.
 - Added PR B2 capability manifest registry with YAML loading, public view stripping, and `/v1/capabilities` endpoints.
+- Added PR B3 input policy utilities with workspace-relative path validation, deny globs, byte limits, and fail-closed secret-like content rejection.
 
 ## Milestone Baseline
 
@@ -37,11 +38,11 @@ Gateway MVP work is underway with the minimal FastAPI service skeleton, health-c
 
 ## Next PRs
 
-1. **PR B3: Input policy and security denylist**
-   - Add file path validation, denied file globs, byte limits, and initial secret-like content handling.
-
-2. **PR B4: Mock runner and run endpoint**
+1. **PR B4: Mock runner and run endpoint**
    - Add runner interface, mock runner, and `POST /v1/capabilities/{id}/run`.
+
+2. **PR B5: Output filter and redaction**
+   - Add output redaction, skill/internal prompt leakage filtering, and unified redacted error responses.
 
 ## Verification Baseline
 
@@ -69,6 +70,14 @@ Gateway B2 validation:
 ```bash
 cd gateway
 python -m pytest tests/test_capability_registry.py tests/test_capability_api.py -q
+python -m pytest tests/ -q
+```
+
+Gateway B3 validation:
+
+```bash
+cd gateway
+python -m pytest tests/test_input_policy.py -q
 python -m pytest tests/ -q
 ```
 
