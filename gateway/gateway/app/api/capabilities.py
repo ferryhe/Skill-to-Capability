@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from uuid import uuid4
 
+from .errors import api_error
 from ..capabilities.manifest import SecurityPolicy
 from ..capabilities.registry import default_registry
 from ..runners.base import CapabilityRunner
@@ -12,6 +13,7 @@ from ..security.input_policy import (
     WorkspaceInputText,
     validate_workspace_context_inputs,
 )
+from ..security.output_filter import filter_capability_run_result
 from ..tasks.models import CapabilityRunRequest, CapabilityTaskResult, WorkspaceSelection
 
 router = APIRouter(prefix="/v1")
@@ -30,7 +32,11 @@ def get_capability(capability_id: str) -> dict:
     registry = default_registry()
     capability = registry.find(capability_id)
     if capability is None:
-        raise HTTPException(status_code=404, detail="Capability not found")
+        raise api_error(
+            status_code=404,
+            code="capability_not_found",
+            message="Capability not found",
+        )
     return capability.public_view()
 
 
@@ -42,7 +48,11 @@ def run_capability(
     registry = default_registry()
     capability = registry.find(capability_id)
     if capability is None:
-        raise HTTPException(status_code=404, detail="Capability not found")
+        raise api_error(
+            status_code=404,
+            code="capability_not_found",
+            message="Capability not found",
+        )
 
     _validate_selection_range(request)
     _validate_request_input_modes(capability.input_modes, request)
@@ -55,13 +65,15 @@ def run_capability(
             _input_policy_from_security(capability.security),
         )
     except InputPolicyViolation as exc:
-        raise HTTPException(
+        raise api_error(
             status_code=400,
-            detail={"code": exc.code, "message": exc.message},
+            code=exc.code,
+            message=exc.message,
         ) from exc
 
     runner = _runner_for_capability(capability.internal.runner)
-    result = runner.run(capability, request, validated_files)
+    raw_result = runner.run(capability, request, validated_files)
+    result = filter_capability_run_result(raw_result)
     task_result = CapabilityTaskResult(
         task_id=f"task_{uuid4().hex}",
         status="completed",
@@ -76,16 +88,14 @@ def _validate_selection_range(request: CapabilityRunRequest) -> None:
 
     selection = request.workspace.selection
     if _selection_range_is_invalid(selection):
-        raise HTTPException(
+        raise api_error(
             status_code=400,
-            detail={
-                "code": "invalid_selection_range",
-                "message": (
-                    "Selection start_line and end_line must be provided together, "
-                    "be at least 1, and end_line must be greater than or equal "
-                    "to start_line."
-                ),
-            },
+            code="invalid_selection_range",
+            message=(
+                "Selection start_line and end_line must be provided together, "
+                "be at least 1, and end_line must be greater than or equal "
+                "to start_line."
+            ),
         )
 
 
@@ -108,42 +118,34 @@ def _validate_request_input_modes(
 
     declared_modes = set(input_modes)
     if request.workspace.selection is not None and "selection" not in declared_modes:
-        raise HTTPException(
+        raise api_error(
             status_code=400,
-            detail={
-                "code": "unsupported_input_mode",
-                "message": "Capability does not accept selection input.",
-            },
+            code="unsupported_input_mode",
+            message="Capability does not accept selection input.",
         )
 
     if request.workspace.git_diff is not None and "git_diff" not in declared_modes:
-        raise HTTPException(
+        raise api_error(
             status_code=400,
-            detail={
-                "code": "unsupported_input_mode",
-                "message": "Capability does not accept git_diff input.",
-            },
+            code="unsupported_input_mode",
+            message="Capability does not accept git_diff input.",
         )
 
     if request.workspace.files and not declared_modes.intersection(FILE_LIKE_INPUT_MODES):
-        raise HTTPException(
+        raise api_error(
             status_code=400,
-            detail={
-                "code": "unsupported_input_mode",
-                "message": "Capability does not accept workspace files input.",
-            },
+            code="unsupported_input_mode",
+            message="Capability does not accept workspace files input.",
         )
 
 
 def _runner_for_capability(runner_name: str) -> CapabilityRunner:
     if runner_name == "mock":
         return MockCapabilityRunner()
-    raise HTTPException(
+    raise api_error(
         status_code=501,
-        detail={
-            "code": "unsupported_runner",
-            "message": "Capability runner is not supported by this Gateway.",
-        },
+        code="unsupported_runner",
+        message="Capability runner is not supported by this Gateway.",
     )
 
 

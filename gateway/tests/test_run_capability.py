@@ -56,9 +56,10 @@ def assert_no_private_response_tokens(body: dict[str, Any]) -> None:
 
 
 def assert_policy_error(response_body: dict[str, Any], expected_code: str) -> None:
-    detail = response_body["detail"]
-    assert detail["code"] == expected_code
-    assert isinstance(detail["message"], str)
+    error = response_body["error"]
+    assert error["code"] == expected_code
+    assert isinstance(error["message"], str)
+    assert isinstance(error["details"], dict)
 
 
 class StubRegistry:
@@ -164,7 +165,7 @@ def test_run_unknown_capability_returns_404_without_private_fields() -> None:
 
     assert response.status_code == 404
     body = response.json()
-    assert body["detail"] == "Capability not found"
+    assert_policy_error(body, "capability_not_found")
     assert_no_private_response_tokens(body)
 
 
@@ -186,7 +187,7 @@ def test_run_denies_denylisted_workspace_file_with_policy_error_only() -> None:
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "denylisted_file")
-    assert ".env" in body["detail"]["message"]
+    assert ".env" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -208,7 +209,7 @@ def test_run_denies_workspace_file_outside_manifest_allowlist() -> None:
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "file_not_allowed")
-    assert "notes.txt" in body["detail"]["message"]
+    assert "notes.txt" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -226,7 +227,7 @@ def test_run_rejects_workspace_files_when_no_file_like_input_mode(
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "unsupported_input_mode")
-    assert "workspace files" in body["detail"]["message"]
+    assert "workspace files" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -246,7 +247,7 @@ def test_run_rejects_git_diff_when_input_mode_is_not_declared(
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "unsupported_input_mode")
-    assert "git_diff" in body["detail"]["message"]
+    assert "git_diff" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -268,7 +269,7 @@ def test_run_rejects_selection_when_input_mode_is_not_declared() -> None:
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "unsupported_input_mode")
-    assert "selection" in body["detail"]["message"]
+    assert "selection" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -295,7 +296,7 @@ def test_run_denies_denylisted_selection_path_when_mode_is_declared(
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "denylisted_file")
-    assert ".env" in body["detail"]["message"]
+    assert ".env" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -317,7 +318,7 @@ def test_run_rejects_selection_content_when_input_mode_is_not_declared() -> None
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "unsupported_input_mode")
-    assert "selection" in body["detail"]["message"]
+    assert "selection" in body["error"]["message"]
     assert SECRET_LIKE_SELECTION_CONTENT not in json.dumps(body)
     assert_no_private_response_tokens(body)
 
@@ -345,7 +346,7 @@ def test_run_rejects_secret_like_selection_content_when_mode_is_declared(
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "secret_like_content")
-    assert "src/settings.py" in body["detail"]["message"]
+    assert "src/settings.py" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -367,7 +368,7 @@ def test_run_rejects_oversized_selection_when_input_mode_is_not_declared() -> No
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "unsupported_input_mode")
-    assert "selection" in body["detail"]["message"]
+    assert "selection" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -392,7 +393,7 @@ def test_run_counts_selection_content_toward_manifest_total_input_bytes_when_dec
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "max_total_input_bytes_exceeded")
-    assert "limit is 300000" in body["detail"]["message"]
+    assert "limit is 300000" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -462,7 +463,7 @@ def test_run_counts_git_diff_toward_manifest_total_input_bytes() -> None:
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "max_total_input_bytes_exceeded")
-    assert "limit is 300000" in body["detail"]["message"]
+    assert "limit is 300000" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -480,7 +481,7 @@ def test_run_rejects_secret_like_git_diff_content() -> None:
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "secret_like_content")
-    assert "workspace.git_diff" in body["detail"]["message"]
+    assert "workspace.git_diff" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -503,7 +504,7 @@ def test_run_enforces_manifest_file_count_limit_using_input_policy() -> None:
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "max_files_exceeded")
-    assert "limit is 20" in body["detail"]["message"]
+    assert "limit is 20" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
@@ -525,7 +526,7 @@ def test_run_enforces_manifest_total_input_bytes_limit_using_input_policy() -> N
     assert response.status_code == 400
     body = response.json()
     assert_policy_error(body, "max_total_input_bytes_exceeded")
-    assert "limit is 300000" in body["detail"]["message"]
+    assert "limit is 300000" in body["error"]["message"]
     assert_no_private_response_tokens(body)
 
 
