@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, and contract doc alignment are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, and the Gateway skeleton/health baseline are complete.
 
 ## Source of Truth
 
@@ -12,9 +12,9 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, and contract
 
 ## Active Milestone
 
-**Milestone A: Contract Freeze**
+**Milestone B: Gateway MVP**
 
-This milestone now has a usable baseline for schema, fixture, and manifest validation.
+Gateway MVP work is underway with the minimal FastAPI service skeleton and health-check validation complete.
 
 ## Completed
 
@@ -26,6 +26,7 @@ This milestone now has a usable baseline for schema, fixture, and manifest valid
 - Merged PR #1: full development roadmap and project status tracker.
 - Added contract fixtures and `scripts/validate-contracts.py` for local validation.
 - Aligned API, VSCode, and MCP contract docs with current schemas and fixtures.
+- Added PR B1 FastAPI Gateway skeleton with `/health` endpoint and pytest health test.
 
 ## Milestone Baseline
 
@@ -35,11 +36,11 @@ This milestone now has a usable baseline for schema, fixture, and manifest valid
 
 ## Next PRs
 
-1. **PR B1: Gateway skeleton**
-   - Add FastAPI app, `/health`, and pytest setup.
-
-2. **PR B2: Capability manifest registry**
+1. **PR B2: Capability manifest registry**
    - Add manifest model, YAML loader, public view stripping, and `/v1/capabilities` endpoints.
+
+2. **PR B3: Input policy and security denylist**
+   - Add file path validation, denied file globs, byte limits, and initial secret-like content handling.
 
 ## Verification Baseline
 
@@ -52,6 +53,13 @@ python3 -m json.tool schemas/capability.schema.json >/dev/null
 python3 -m json.tool schemas/run-request.schema.json >/dev/null
 python3 -m json.tool schemas/run-result.schema.json >/dev/null
 git diff --check
+```
+
+Gateway B1 validation:
+
+```bash
+cd gateway
+python -m pytest tests/ -q
 ```
 
 ## Known Risks
