@@ -36,7 +36,7 @@ ALLOWED_TEXT_SUFFIXES = {
     ".yaml",
     ".yml",
 }
-DENY_FILE_NAMES = {".env", "id_rsa", "credentials.json", "SKILL.md"}
+RESERVED_FILE_NAMES = {"SKILL.md"}
 MAX_SAMPLE_FILE_BYTES = 64_000
 
 
@@ -135,13 +135,28 @@ def _collect_workspace_files(
     sample_path: Path,
     capability: CapabilityManifest,
 ) -> list[WorkspaceInputFile]:
+    policy = _input_policy_from_security(capability.security)
     files: list[WorkspaceInputFile] = []
+    total_input_bytes = 0
     for path in sorted(sample_path.rglob("*")):
         if not path.is_file() or _should_skip_path(sample_path, path):
             continue
+        if policy.max_files is not None and len(files) >= policy.max_files:
+            raise SmokeInputError(
+                "Sample workspace rejected by input policy: max_files_exceeded"
+            )
         content = _read_small_text_file(path)
         if content is None:
             continue
+        total_input_bytes += len(content.encode("utf-8"))
+        if (
+            policy.max_total_input_bytes is not None
+            and total_input_bytes > policy.max_total_input_bytes
+        ):
+            raise SmokeInputError(
+                "Sample workspace rejected by input policy: "
+                "max_total_input_bytes_exceeded"
+            )
         relative_path = path.relative_to(sample_path).as_posix()
         files.append(
             WorkspaceInputFile(
@@ -152,10 +167,7 @@ def _collect_workspace_files(
         )
 
     try:
-        return validate_workspace_context_files(
-            files,
-            _input_policy_from_security(capability.security),
-        )
+        return validate_workspace_context_files(files, policy)
     except InputPolicyViolation as exc:
         raise SmokeInputError(
             f"Sample workspace rejected by input policy: {exc.code}"
@@ -171,7 +183,7 @@ def _should_skip_path(sample_path: Path, path: Path) -> bool:
     relative_parts = relative_path.parts
     if any(part.startswith(".") for part in relative_parts):
         return True
-    if path.name.lower() in {name.lower() for name in DENY_FILE_NAMES}:
+    if path.name.lower() in {name.lower() for name in RESERVED_FILE_NAMES}:
         return True
     if path.suffix.lower() not in ALLOWED_TEXT_SUFFIXES:
         return True
@@ -206,7 +218,11 @@ def _input_policy_from_security(security: SecurityPolicy | None) -> InputPolicy:
     return InputPolicy(
         max_files=security.max_files,
         max_total_input_bytes=security.max_total_input_bytes,
-        deny_file_globs=security.deny_file_globs or list(DEFAULT_DENY_FILE_GLOBS),
+        deny_file_globs=(
+            security.deny_file_globs
+            if security.deny_file_globs is not None
+            else list(DEFAULT_DENY_FILE_GLOBS)
+        ),
         allow_file_globs=security.allow_file_globs,
     )
 

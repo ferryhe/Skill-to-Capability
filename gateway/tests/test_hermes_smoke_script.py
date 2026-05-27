@@ -10,6 +10,7 @@ SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import smoke_hermes_runner  # noqa: E402
+from gateway.app.capabilities.registry import default_registry  # noqa: E402
 
 
 PRIVATE_TOKENS = (
@@ -45,6 +46,23 @@ json.dump(
     sys.stdout,
 )
 """.strip()
+
+
+def smoke_capability_with_security(**security_overrides):
+    capability = default_registry().find("backend-rbac-review")
+    assert capability is not None
+    security = capability.security.model_copy(update=security_overrides)
+    return capability.model_copy(update={"security": security}, deep=True)
+
+
+class FakeRegistry:
+    def __init__(self, capability):
+        self.capability = capability
+
+    def find(self, capability_id: str):
+        if capability_id == self.capability.id:
+            return self.capability
+        return None
 
 
 def write_sample_workspace(root: Path) -> None:
@@ -177,6 +195,179 @@ def test_smoke_skips_skill_md_case_variants(
     assert exit_code == 0
     assert captured.err == ""
     assert_no_private_tokens(captured.out)
+
+
+def test_smoke_respects_explicit_empty_deny_file_globs(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = tmp_path / "sample-workspace"
+    sample.mkdir()
+    (sample / "credentials.json").write_text(
+        '{"service": "public-smoke-fixture"}\n',
+        encoding="utf-8",
+    )
+    capability = smoke_capability_with_security(
+        deny_file_globs=[],
+        allow_file_globs=["**/*.json"],
+    )
+    monkeypatch.setattr(
+        smoke_hermes_runner,
+        "default_registry",
+        lambda: FakeRegistry(capability),
+    )
+    command = """
+import json
+import sys
+
+payload = json.loads(sys.stdin.read())
+paths = [file["path"] for file in payload["workspace_files"]]
+if "credentials.json" not in paths:
+    sys.exit(7)
+json.dump(
+    {
+        "summary": "Empty deny list respected.",
+        "findings": [],
+        "patch": None,
+        "recommended_tests": [],
+        "artifacts": [],
+        "safe_rationale": "Public run-result JSON only.",
+        "confidence": 0.9,
+    },
+    sys.stdout,
+)
+""".strip()
+
+    exit_code = smoke_hermes_runner.main(
+        [
+            "--capability",
+            "backend-rbac-review",
+            "--sample",
+            str(sample),
+            "--command",
+            sys.executable,
+            "-c",
+            command,
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.err == ""
+    assert json.loads(captured.out)["summary"] == "Empty deny list respected."
+
+
+def test_smoke_rejects_too_many_files_before_running_hermes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = tmp_path / "sample-workspace"
+    sample.mkdir()
+    (sample / "a.py").write_text("print('a')\n", encoding="utf-8")
+    (sample / "b.py").write_text("print('b')\n", encoding="utf-8")
+    marker = tmp_path / "runner-was-called"
+    capability = smoke_capability_with_security(
+        max_files=1,
+        allow_file_globs=["**/*.py"],
+    )
+    monkeypatch.setattr(
+        smoke_hermes_runner,
+        "default_registry",
+        lambda: FakeRegistry(capability),
+    )
+    original_read_small_text_file = smoke_hermes_runner._read_small_text_file
+
+    def fail_if_second_file_is_read(path: Path):
+        if path.name == "b.py":
+            raise AssertionError("second file should not be read after max_files")
+        return original_read_small_text_file(path)
+
+    monkeypatch.setattr(
+        smoke_hermes_runner,
+        "_read_small_text_file",
+        fail_if_second_file_is_read,
+    )
+
+    exit_code = smoke_hermes_runner.main(
+        [
+            "--capability",
+            "backend-rbac-review",
+            "--sample",
+            str(sample),
+            "--command",
+            sys.executable,
+            "-c",
+            "from pathlib import Path; import sys; Path(sys.argv[1]).write_text('called')",
+            str(marker),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code != 0
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "Sample workspace rejected by input policy: max_files_exceeded"
+    )
+    assert not marker.exists()
+
+
+def test_smoke_rejects_total_input_bytes_before_running_hermes(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sample = tmp_path / "sample-workspace"
+    sample.mkdir()
+    (sample / "a.py").write_text("print('too much')\n", encoding="utf-8")
+    (sample / "b.py").write_text("print('should not read')\n", encoding="utf-8")
+    marker = tmp_path / "runner-was-called"
+    capability = smoke_capability_with_security(
+        max_total_input_bytes=4,
+        allow_file_globs=["**/*.py"],
+    )
+    monkeypatch.setattr(
+        smoke_hermes_runner,
+        "default_registry",
+        lambda: FakeRegistry(capability),
+    )
+    original_read_small_text_file = smoke_hermes_runner._read_small_text_file
+
+    def fail_if_second_file_is_read(path: Path):
+        if path.name == "b.py":
+            raise AssertionError(
+                "second file should not be read after max_total_input_bytes"
+            )
+        return original_read_small_text_file(path)
+
+    monkeypatch.setattr(
+        smoke_hermes_runner,
+        "_read_small_text_file",
+        fail_if_second_file_is_read,
+    )
+
+    exit_code = smoke_hermes_runner.main(
+        [
+            "--capability",
+            "backend-rbac-review",
+            "--sample",
+            str(sample),
+            "--command",
+            sys.executable,
+            "-c",
+            "from pathlib import Path; import sys; Path(sys.argv[1]).write_text('called')",
+            str(marker),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code != 0
+    assert captured.out == ""
+    assert captured.err.strip() == (
+        "Sample workspace rejected by input policy: max_total_input_bytes_exceeded"
+    )
+    assert not marker.exists()
 
 
 def test_smoke_command_remainder_passes_option_like_arguments_to_runner(
