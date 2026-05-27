@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, and the D1 Hermes runner contract are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, and the D2 task store/async status API are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 **Milestone D: Real Runner and Task Lifecycle**
 
-Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is in progress with the D1 mockable Hermes runner contract complete; D2 task store and async status is next.
+Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is in progress with the D1 mockable Hermes runner contract and D2 task store/status lifecycle complete; D3 real Hermes smoke is next.
 
 ## Completed
 
@@ -34,6 +34,7 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 - Added PR C1 SKILL.md frontmatter parser and converter that emits `CapabilityManifest` draft objects with `internal.skill_ref`, `internal.expose_skill_text = false`, and no skill body text in serialized output.
 - Added PR C2 `skillgw` CLI with `capabilities generate`, `capabilities validate`, and `capabilities list`, including public stdout guarantees and invalid-manifest nonzero exits.
 - Added PR D1 Hermes runner contract with mockable subprocess execution, strict JSON result parsing, schema validation, output filtering, and sanitized runner failures.
+- Added PR D2 task store and async status API with in-memory lifecycle states, task status/result/cancel endpoints, queued async run responses, completed result lookup, and redacted failed-task error envelopes.
 
 ## Milestone Baseline
 
@@ -43,10 +44,10 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 
 ## Next PRs
 
-1. **PR D2: Task store and async status**
-   - Add task storage and lifecycle states for queued/running/completed/failed/cancelled work.
-   - Add task status/result/cancel endpoints.
-   - Preserve the B5/D1 handoff rule: all task result and failure paths must use filtered public result shapes and redacted `error` envelopes.
+1. **PR D3: Real Hermes smoke**
+   - Add a local smoke script for non-sensitive Hermes runner execution.
+   - Document how to run the smoke without committing private skills or raw runner output.
+   - Preserve the B5/D1/D2 handoff rule: all runner outputs and task result/failure paths must use filtered public result shapes and redacted `error` envelopes.
 
 ## Verification Baseline
 
@@ -135,10 +136,20 @@ python ../scripts/validate-contracts.py
 git diff --check
 ```
 
+Gateway D2 validation:
+
+```bash
+cd gateway
+python -m pytest tests/test_tasks_api.py -q
+python -m pytest tests/test_run_capability.py tests/test_output_filter.py tests/test_error_redaction.py tests/test_hermes_runner_contract.py -q
+python ../scripts/validate-contracts.py
+git diff --check
+```
+
 ## Known Risks
 
 - Real Hermes smoke execution is not implemented yet; D1 only defines the mockable subprocess contract.
-- Async task storage/status is not implemented yet.
+- Async queued tasks do not have a background worker yet; D2 only records queued lifecycle state and exposes status/cancel/result APIs.
 - VSCode Extension and MCP Adapter are not bootstrapped yet.
 - No CI exists yet; validation is currently local only.
 - Example skill is intentionally non-sensitive placeholder text.

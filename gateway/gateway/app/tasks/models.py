@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -85,3 +86,31 @@ class CapabilityTaskResult(BaseModel):
     task_id: str
     status: Literal["completed"]
     result: CapabilityRunResult
+
+
+TaskStatus = Literal["queued", "running", "completed", "failed", "cancelled"]
+
+
+class CapabilityTaskQueued(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    status: Literal["queued"]
+
+
+class CapabilityTaskStatus(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    status: TaskStatus
+    capability_id: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class TaskError(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+    details: dict[str, Any] = Field(default_factory=dict)
