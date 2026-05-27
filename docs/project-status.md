@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, and the Contract Freeze baseline are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, and contract doc alignment are complete.
 
 ## Source of Truth
 
@@ -25,6 +25,7 @@ This milestone now has a usable baseline for schema, fixture, and manifest valid
 - Added full development roadmap.
 - Merged PR #1: full development roadmap and project status tracker.
 - Added contract fixtures and `scripts/validate-contracts.py` for local validation.
+- Aligned API, VSCode, and MCP contract docs with current schemas and fixtures.
 
 ## Milestone Baseline
 
@@ -34,14 +35,10 @@ This milestone now has a usable baseline for schema, fixture, and manifest valid
 
 ## Next PRs
 
-1. **PR A2: Contract docs alignment**
-   - Ensure docs and schemas use identical field names.
-   - Make every JSON example parseable.
-
-2. **PR B1: Gateway skeleton**
+1. **PR B1: Gateway skeleton**
    - Add FastAPI app, `/health`, and pytest setup.
 
-3. **PR B2: Capability manifest registry**
+2. **PR B2: Capability manifest registry**
    - Add manifest model, YAML loader, public view stripping, and `/v1/capabilities` endpoints.
 
 ## Verification Baseline
