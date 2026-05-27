@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, the D2 task store/async status API, the D3 real Hermes smoke script, the E1 VSCode extension skeleton/settings/auth placeholder, the E2 VSCode capability list UI, and the E3 VSCode workspace context collector are complete.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, the D2 task store/async status API, the D3 real Hermes smoke script, the E1 VSCode extension skeleton/settings/auth placeholder, the E2 VSCode capability list UI, the E3 VSCode workspace context collector, and the E4 VSCode run capability/report panel flow are complete.
 
 ## Source of Truth
 
@@ -14,7 +14,7 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 **Milestone E: VSCode Extension MVP**
 
-Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is complete with the D1 mockable Hermes runner contract, D2 task store/status lifecycle, and D3 real Hermes smoke script. Milestone E has completed E1 through E3 with the VSCode extension package skeleton, settings contributions, SecretStorage token placeholder, public-only Gateway client, command palette capability refresh, Explorer tree view, public-field-only capability detail output, and bounded workspace context collection for current file, selection, selected files, and git diff flows.
+Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is complete with the D1 mockable Hermes runner contract, D2 task store/status lifecycle, and D3 real Hermes smoke script. Milestone E has completed E1 through E4 with the VSCode extension package skeleton, settings contributions, SecretStorage token placeholder, public-only Gateway client, command palette capability refresh, Explorer tree view, public-field-only capability detail output, bounded workspace context collection for current file, selection, selected files, and git diff flows, Gateway run command wiring, and a public-only report webview.
 
 ## Completed
 
@@ -39,6 +39,7 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 - Added PR E1 VSCode extension skeleton with command activation, Gateway settings, SecretStorage token placeholder, and a minimal public-only Gateway client for listing/getting capabilities.
 - Added PR E2 VSCode capability list UI with command palette refresh, Explorer tree provider for Gateway public capabilities, OutputChannel detail display, and UI-side public-field filtering for server-only fields.
 - Added PR E3 VSCode workspace context collector with public run-request payload construction, current file/selection/selected file/git diff sources, client-side denylist enforcement, workspace escape rejection, and configured file count/byte limits.
+- Added PR E4 VSCode run capability flow with Gateway `POST /v1/capabilities/{id}/run` client support, current file/git diff/no-context command modes, instruction prompt, queued/completed task metadata handling, and an escaped report panel for summary/findings/safe rationale/confidence/recommended tests/artifact metadata that ignores server-only fields.
 
 ## Milestone Baseline
 
@@ -48,10 +49,10 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 
 ## Next PRs
 
-1. **PR E4: Run capability + report panel**
-   - Let users choose a capability and provide an instruction.
-   - Send bounded E3 workspace context to the Gateway run endpoint.
-   - Render summary/findings/recommended tests in a VSCode report panel while ignoring server-only fields.
+1. **PR E5: Patch preview/apply**
+   - Preview public patch output from completed reports.
+   - Apply approved patches through VSCode workspace edits with path safety checks.
+   - Keep execution user-confirmed and scoped to the current workspace.
 
 ## Verification Baseline
 
@@ -197,12 +198,23 @@ python scripts/validate-contracts.py
 git diff --check
 ```
 
+VSCode E4 validation:
+
+```bash
+cd vscode-extension
+npm run test:runCapability
+npm test
+cd ..
+python scripts/validate-contracts.py
+git diff --check
+```
+
 ## Known Risks
 
 - Real Hermes smoke script exists, but actual execution requires a local Hermes CLI and developer-specific Hermes configuration; because `backend-rbac-review` now defaults to the Hermes runner, Gateway synchronous `/v1/capabilities/backend-rbac-review/run` calls also return a safe 502 when Hermes is unavailable.
 - Async queued tasks do not have a background worker yet; D2 only records queued lifecycle state and exposes status/cancel/result APIs.
-- VSCode Extension currently has the E1 skeleton/settings/auth/client baseline, E2 capability list UI, and E3 workspace context collector; Gateway run flow, report panel, patch apply, and recommended test execution remain in later E PRs.
-- E3 collector is not yet wired into real VSCode commands or the Gateway run flow; that integration is intentionally deferred to E4.
+- VSCode Extension currently has the E1 skeleton/settings/auth/client baseline, E2 capability list UI, E3 workspace context collector, and E4 Gateway run/report panel flow; patch apply and recommended test execution remain in later E PRs.
+- E4 displays patch availability/short preview and recommended test names only; actual patch application and test execution remain deferred to E5/E6.
 - MCP Adapter is still not bootstrapped.
 - No CI exists yet; validation is currently local only.
 - Example skill is intentionally non-sensitive placeholder text.

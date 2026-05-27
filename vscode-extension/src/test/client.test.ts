@@ -216,6 +216,90 @@ test("getCapability sends tenant and authorization headers", async () => {
   assert.equal(headerValue(requests[0].init, "X-Tenant-Id"), "tenant-a");
 });
 
+test("runCapability posts request body with tenant and authorization headers", async () => {
+  const requests: Array<{ url: string; init?: RequestInit }> = [];
+  const fetch: FetchLike = async (url: string | URL, init?: RequestInit) => {
+    requests.push({ url: String(url), init });
+    return jsonResponse(200, {
+      task_id: "task-123",
+      status: "completed",
+      result: {
+        summary: "Reviewed safely.",
+        findings: [
+          {
+            severity: "high",
+            path: "src/app.ts",
+            message: "Escaped output is missing.",
+            internal: "private finding",
+          },
+        ],
+        recommended_tests: ["npm test"],
+        internal: "private result",
+        prompt: "private prompt",
+        trace: ["private trace"],
+        skill_text: "private skill body",
+        raw_runner_output: "private raw output",
+      },
+    });
+  };
+  const client = new GatewayClient({
+    gatewayUrl: "https://gateway.example.com",
+    tenantId: "tenant-a",
+    tokenProvider: async () => "gateway-token",
+    fetch,
+  });
+
+  const run = await client.runCapability("backend-rbac-review", {
+    instruction: "Review current file",
+    workspace: {
+      files: [{ path: "src/app.ts", content: "const value = 1;\n" }],
+    },
+    client: { type: "vscode", version: "0.1.0" },
+  });
+
+  assert.equal(requests[0].url, "https://gateway.example.com/v1/capabilities/backend-rbac-review/run");
+  assert.equal(requests[0].init?.method, "POST");
+  assert.equal(headerValue(requests[0].init, "Accept"), "application/json");
+  assert.equal(headerValue(requests[0].init, "Content-Type"), "application/json");
+  assert.equal(headerValue(requests[0].init, "Authorization"), "Bearer gateway-token");
+  assert.equal(headerValue(requests[0].init, "X-Tenant-Id"), "tenant-a");
+  assert.deepEqual(JSON.parse(String(requests[0].init?.body)), {
+    instruction: "Review current file",
+    workspace: {
+      files: [{ path: "src/app.ts", content: "const value = 1;\n" }],
+    },
+    client: { type: "vscode", version: "0.1.0" },
+  });
+  assert.equal(run.task_id, "task-123");
+  assert.equal(run.status, "completed");
+  assert.equal(hasForbiddenKey(run), false);
+  assert.equal(JSON.stringify(run).includes("private"), false);
+});
+
+test("runCapability returns queued task metadata without requiring a result", async () => {
+  const fetch: FetchLike = async () =>
+    jsonResponse(202, {
+      task_id: "task-queued",
+      status: "queued",
+      internal: "private queue metadata",
+      trace: ["private trace"],
+    });
+  const client = new GatewayClient({
+    gatewayUrl: "https://gateway.example.com",
+    fetch,
+  });
+
+  const run = await client.runCapability("backend-rbac-review", {
+    instruction: "Review later",
+    client: { type: "vscode" },
+  });
+
+  assert.deepEqual(run, {
+    task_id: "task-queued",
+    status: "queued",
+  });
+});
+
 test("maps Gateway error responses", async () => {
   const fetch: FetchLike = async () =>
     jsonResponse(404, {
