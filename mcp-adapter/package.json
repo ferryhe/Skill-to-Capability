@@ -20,7 +20,8 @@
     "test": "npm run build && node --test dist/test/config.test.js dist/test/gatewayClient.test.js dist/test/security.test.js dist/test/server.test.js"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.20.0"
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "20.12.12",

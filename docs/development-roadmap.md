@@ -657,7 +657,7 @@ git diff --check
 
 ### PR F2：list/run/status/result/cancel tools
 
-**状态：下一步**
+**状态：完成（当前 F2 implementation branch，未声明已合并）**
 
 **范围**
 - `list_capabilities`。
@@ -688,6 +688,8 @@ npm run build
 - tool output 不含 `internal`。
 
 ### PR F3：Hermes/Cline smoke docs
+
+**状态：下一步**
 
 **范围**
 - MCP 配置示例。
