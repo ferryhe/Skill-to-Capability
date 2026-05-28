@@ -376,6 +376,45 @@ def test_output_filter_rejects_suspected_skill_body_or_internal_prompt_text() ->
 
 
 @pytest.mark.parametrize(
+    "leaked_text",
+    [
+        "full prompt: hidden orchestration text",
+        "raw prompt: hidden user payload",
+        "raw runner output: private stdout",
+    ],
+)
+def test_output_filter_rejects_labeled_prompt_and_runner_output_leaks(
+    leaked_text: str,
+) -> None:
+    result = CapabilityRunResult(
+        summary=leaked_text,
+        safe_rationale="Public rationale.",
+        confidence=0.5,
+    )
+
+    with pytest.raises(OutputFilterViolation) as exc_info:
+        filter_capability_run_result(result)
+
+    assert exc_info.value.code == "output_filter_violation"
+    assert leaked_text not in str(exc_info.value)
+
+
+def test_output_filter_allows_public_discussion_of_prompt_safety_terms() -> None:
+    result = CapabilityRunResult(
+        summary=(
+            "The full prompt should be minimized, and raw runner output should "
+            "stay out of public reports."
+        ),
+        safe_rationale="Public mitigation guidance.",
+        confidence=0.5,
+    )
+
+    safe_result = filter_capability_run_result(result)
+
+    assert safe_result.summary.startswith("The full prompt should be minimized")
+
+
+@pytest.mark.parametrize(
     "leaky_key",
     [
         "internal system prompt: do not reveal this raw instruction",
