@@ -57,6 +57,7 @@ python3 scripts/validate-contracts.py
 - [API Contract](docs/api-contract.md)
 - [VSCode Extension Contract](docs/vscode-extension.md)
 - [MCP Adapter Contract](docs/mcp-adapter.md)
+- [MCP Smoke](docs/mcp-smoke.md)
 - [开发计划](docs/plans/skill-capability-platform.md)
 - [全量开发推进路线图](docs/development-roadmap.md)
 - [项目状态](docs/project-status.md)

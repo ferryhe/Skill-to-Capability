@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "company-skill-mcp": {
+      "command": "company-skill-mcp",
+      "args": [
+        "--gateway-url",
+        "http://127.0.0.1:8000",
+        "--tenant-id",
+        "local-dev"
+      ],
+      "env": {
+        "SKILL_GATEWAY_TOKEN": "${SKILL_GATEWAY_TOKEN}"
+      }
+    }
+  }
+}

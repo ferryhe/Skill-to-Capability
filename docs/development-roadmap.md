@@ -689,7 +689,7 @@ npm run build
 
 ### PR F3：Hermes/Cline smoke docs
 
-**状态：下一步**
+**状态：完成（当前 F3 implementation branch，未声明已合并）**
 
 **范围**
 - MCP 配置示例。
@@ -703,8 +703,19 @@ examples/mcp/cline-config.json
 ```
 
 **验收**
-- Hermes 可配置 stdio MCP server。
+- Hermes 可配置 stdio MCP server `company-skill-mcp`。
 - Cline/Roo 可参考配置接入。
+- smoke 文档说明 Gateway URL/token/tenant 的 env 和 CLI 配置方式。
+- smoke 文档说明 5 个 MCP tools 的可见性检查和非敏感 sample workspace run。
+- 示例不包含真实 token、private skill、prompt、raw runner output、provider credentials 或 tenant secrets。
+
+**验证**
+```bash
+python scripts/validate-contracts.py
+python -m json.tool examples/mcp/cline-config.json
+python -c "import yaml; yaml.safe_load(open('examples/mcp/hermes-config.yaml', encoding='utf-8'))"
+git diff --check
+```
 
 ## Milestone G：Auth、Tenant、Audit、安全强化
 
