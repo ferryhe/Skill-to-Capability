@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  schema:
+    name: schema validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install validation dependencies
+        run: python -m pip install -r requirements-dev.txt
+
+      - name: Validate contracts and examples
+        run: python scripts/validate-contracts.py
+
+      - name: Validate schema JSON syntax
+        run: |
+          python -m json.tool schemas/capability.schema.json >/dev/null
+          python -m json.tool schemas/run-request.schema.json >/dev/null
+          python -m json.tool schemas/run-result.schema.json >/dev/null
+
+      - name: Check whitespace
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            base="$PR_BASE_SHA"
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            base="$PUSH_BEFORE_SHA"
+            if [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              base="$(git hash-object -t tree /dev/null)"
+            fi
+          else
+            echo "Unsupported event for whitespace check: $GITHUB_EVENT_NAME" >&2
+            exit 1
+          fi
+
+          git diff --check "$base" "$GITHUB_SHA" --
+
+  gateway:
+    name: gateway tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: gateway/pyproject.toml
+
+      - name: Install Gateway test dependencies
+        working-directory: gateway
+        run: python -m pip install -e ".[dev]"
+
+      - name: Run Gateway tests
+        working-directory: gateway
+        run: python -m pytest tests -q
+
+  vscode:
+    name: vscode extension build and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: Install VSCode extension dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Build VSCode extension
+        working-directory: vscode-extension
+        run: npm run compile
+
+      - name: Run VSCode extension tests
+        working-directory: vscode-extension
+        run: npm test
+
+  mcp:
+    name: mcp adapter build and tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mcp-adapter/package-lock.json
+
+      - name: Install MCP adapter dependencies
+        working-directory: mcp-adapter
+        run: npm ci
+
+      - name: Build MCP adapter
+        working-directory: mcp-adapter
+        run: npm run build
+
+      - name: Run MCP adapter tests
+        working-directory: mcp-adapter
+        run: npm test
