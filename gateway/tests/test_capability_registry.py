@@ -143,3 +143,35 @@ def test_default_registry_returns_cached_registry() -> None:
     second_registry = default_registry()
 
     assert first_registry is second_registry
+
+
+def test_default_registry_supports_dev_mock_runner_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    default_registry.cache_clear()
+    monkeypatch.setenv("SKILL_GATEWAY_AUTH_MODE", "dev")
+    monkeypatch.setenv("SKILL_GATEWAY_DEV_RUNNER", "mock")
+
+    try:
+        registry = default_registry()
+        capability = registry.get("backend-rbac-review")
+
+        assert capability.internal.runner == "mock"
+        assert "internal" not in capability.public_view()
+    finally:
+        default_registry.cache_clear()
+
+
+def test_default_registry_requires_dev_auth_for_dev_runner_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    default_registry.cache_clear()
+    monkeypatch.delenv("SKILL_GATEWAY_AUTH_MODE", raising=False)
+    monkeypatch.delenv("SKILL_GATEWAY_AUTH_DISABLED", raising=False)
+    monkeypatch.setenv("SKILL_GATEWAY_DEV_RUNNER", "mock")
+
+    try:
+        with pytest.raises(ManifestLoadError, match="requires SKILL_GATEWAY_AUTH_MODE=dev"):
+            default_registry()
+    finally:
+        default_registry.cache_clear()

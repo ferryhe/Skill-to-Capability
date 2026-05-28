@@ -1,4 +1,5 @@
 from functools import lru_cache
+import os
 from pathlib import Path
 from typing import Any
 
@@ -6,6 +7,11 @@ import yaml
 from pydantic import ValidationError
 
 from .manifest import CapabilityManifest
+
+DEV_RUNNER_ENV = "SKILL_GATEWAY_DEV_RUNNER"
+DEV_RUNNER_OVERRIDES = {"mock"}
+AUTH_MODE_ENV = "SKILL_GATEWAY_AUTH_MODE"
+AUTH_DISABLED_ENV = "SKILL_GATEWAY_AUTH_DISABLED"
 
 
 class ManifestLoadError(ValueError):
@@ -71,4 +77,35 @@ def load_manifest(path: Path) -> CapabilityManifest:
 @lru_cache(maxsize=1)
 def default_registry() -> CapabilityRegistry:
     capabilities_dir = Path(__file__).resolve().parents[3] / "capabilities"
-    return CapabilityRegistry.from_directory(capabilities_dir)
+    registry = CapabilityRegistry.from_directory(capabilities_dir)
+    return _with_dev_runner_override(registry)
+
+
+def _with_dev_runner_override(registry: CapabilityRegistry) -> CapabilityRegistry:
+    runner = os.getenv(DEV_RUNNER_ENV, "").strip().casefold()
+    if not runner:
+        return registry
+    if not _dev_auth_bypass_enabled():
+        raise ManifestLoadError(
+            f"{DEV_RUNNER_ENV} requires {AUTH_MODE_ENV}=dev or "
+            f"{AUTH_DISABLED_ENV}=true."
+        )
+    if runner not in DEV_RUNNER_OVERRIDES:
+        raise ManifestLoadError(
+            f"{DEV_RUNNER_ENV} only supports: "
+            + ", ".join(sorted(DEV_RUNNER_OVERRIDES))
+        )
+
+    manifests = [
+        manifest.model_copy(
+            update={"internal": manifest.internal.model_copy(update={"runner": runner})}
+        )
+        for manifest in registry.list_all()
+    ]
+    return CapabilityRegistry(manifests)
+
+
+def _dev_auth_bypass_enabled() -> bool:
+    auth_mode = os.getenv(AUTH_MODE_ENV, "").strip().casefold()
+    auth_disabled = os.getenv(AUTH_DISABLED_ENV, "").strip().casefold()
+    return auth_mode == "dev" or auth_disabled == "true"
