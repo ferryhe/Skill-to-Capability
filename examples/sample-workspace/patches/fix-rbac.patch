@@ -1,0 +1,9 @@
+diff --git a/app.py b/app.py
+--- a/app.py
++++ b/app.py
+@@ -11,3 +11,3 @@
+ def can_view_admin_report(user: User) -> bool:
+-    # BUG: this grants every active user access to the admin report.
+-    return user.is_active
++    # Only active administrators may view the admin report.
++    return user.is_active and user.role == "admin"
