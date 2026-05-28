@@ -1,5 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+
 from .errors import api_error
+from ..auth.dependencies import require_request_identity
+from ..auth.models import RequestIdentity
 from ..capabilities.manifest import SecurityPolicy
 from ..capabilities.registry import default_registry
 from ..runners.base import CapabilityRunner
@@ -28,13 +31,18 @@ FILE_LIKE_INPUT_MODES = {"current_file", "selected_files", "workspace_snapshot"}
 
 
 @router.get("/capabilities")
-def list_capabilities() -> dict[str, list[dict]]:
+def list_capabilities(
+    _identity: RequestIdentity = Depends(require_request_identity),
+) -> dict[str, list[dict]]:
     registry = default_registry()
     return {"capabilities": registry.list_public()}
 
 
 @router.get("/capabilities/{capability_id}")
-def get_capability(capability_id: str) -> dict:
+def get_capability(
+    capability_id: str,
+    _identity: RequestIdentity = Depends(require_request_identity),
+) -> dict:
     registry = default_registry()
     capability = registry.find(capability_id)
     if capability is None:
@@ -50,6 +58,7 @@ def get_capability(capability_id: str) -> dict:
 def run_capability(
     capability_id: str,
     request: CapabilityRunRequest,
+    _identity: RequestIdentity = Depends(require_request_identity),
 ) -> dict:
     registry = default_registry()
     capability = registry.find(capability_id)

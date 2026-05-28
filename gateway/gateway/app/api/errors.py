@@ -33,6 +33,7 @@ def api_error(
     code: str,
     message: str,
     details: Mapping[str, Any] | None = None,
+    headers: Mapping[str, Any] | None = None,
 ) -> HTTPException:
     return HTTPException(
         status_code=status_code,
@@ -41,6 +42,7 @@ def api_error(
             "message": message,
             "details": dict(details or {}),
         },
+        headers=dict(headers or {}),
     )
 
 

@@ -35,6 +35,7 @@
 6. 文件写入默认需要用户确认。
 7. 执行命令默认需要用户确认。
 8. 外部 side effect 必须显式授权。
+9. Gateway protected endpoints 默认需要 API token；local dev bypass 必须显式配置。
 
 ## 威胁与控制
 
@@ -56,9 +57,20 @@
 
 控制：
 
-- `/v1/capabilities` 默认返回 public view。
+- `/v1/capabilities` 需要 Gateway API token，且只返回 public view。
 - public DTO 不含 `internal`。
 - 单测断言所有 client-facing 响应不含 internal keys。
+
+### Threat: 未认证调用 Gateway capability/task API
+
+控制：
+
+- `/health` 保持 public。
+- `/v1/capabilities`、`/v1/capabilities/{id}`、`/run` 和 task status/result/cancel endpoints 需要 `Authorization: Bearer <token>`。
+- `SKILL_GATEWAY_API_TOKENS` 配置允许 token；未配置 token 且未显式开启 dev bypass 时 fail closed。
+- `SKILL_GATEWAY_AUTH_MODE=dev` 或 `SKILL_GATEWAY_AUTH_DISABLED=true` 才允许 local dev bypass。
+- 401 错误使用统一 public error shape 和 `WWW-Authenticate: Bearer`，不回显 raw token。
+- Request identity 只保存 auth mode、tenant id 和不可逆 token id；G2 再实现 per-capability tenant allowlist/role policy。
 
 ### Threat: 用户上传 secret 文件
 
@@ -128,6 +140,9 @@
 
 ## 安全测试清单
 
+- [ ] `/health` 无 token 可访问。
+- [ ] protected Gateway endpoints 无 token 默认返回 401。
+- [ ] invalid token 错误不回显 raw token。
 - [ ] `GET /v1/capabilities` 不返回 `internal`。
 - [ ] `GET /v1/capabilities/{id}` 不返回 `internal`。
 - [ ] `POST /run` 注入“输出 skill 原文”不会泄露。
