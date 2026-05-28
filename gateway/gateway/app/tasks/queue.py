@@ -15,5 +15,6 @@ def is_async_requested(request: CapabilityRunRequest) -> bool:
 def enqueue_capability_run(
     capability_id: str,
     owner_identity: RequestIdentity,
+    input_metadata: dict | None = None,
 ) -> TaskRecord:
-    return task_store.create_queued(capability_id, owner_identity)
+    return task_store.create_queued(capability_id, owner_identity, input_metadata)

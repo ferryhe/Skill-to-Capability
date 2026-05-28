@@ -553,6 +553,24 @@ Only the task owner identity can cancel queued/running tasks. Non-owner
 identities receive sanitized `404 task_not_found`; owner identities still receive
 the existing state-specific conflict errors for non-cancellable tasks.
 
+## Internal audit log
+
+G3 adds an internal in-memory audit store for Gateway tests and future server-side
+operators. It is not exposed as a public API endpoint. Audit events are queryable
+inside the Gateway process by task id and record:
+
+- task lifecycle actions: `queued`, `running`, `completed`, `failed`, `cancelled`
+- sanitized input metadata: execution mode, instruction length, input counts and byte sizes, option count, client type
+- sanitized output metadata: status, result keys/counts/size, patch presence, error code only
+- safe actor metadata: normalized auth mode, tenant id, role, and only safe non-reversible token ids
+- approval events with approval type and decision only
+
+Audit records must not store full instructions, file contents, git diffs, skill
+text, prompts, raw tokens, raw runner output, raw errors, or secret values.
+The audit store normalizes event actions, IDs, and actor fields at the store
+boundary; unknown actions are stored as `unknown`, and invalid IDs or
+actor/token fields are dropped instead of persisted.
+
 ## Error shape
 
 ```json
