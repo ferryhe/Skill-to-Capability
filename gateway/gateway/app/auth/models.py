@@ -6,4 +6,5 @@ class RequestIdentity(BaseModel):
 
     auth_mode: str
     tenant_id: str
+    role: str
     token_id: str | None = None

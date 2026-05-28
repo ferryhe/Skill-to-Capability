@@ -1,3 +1,5 @@
+from gateway.app.auth.models import RequestIdentity
+
 from .models import CapabilityRunRequest
 from .store import TaskRecord, task_store
 
@@ -10,5 +12,8 @@ def is_async_requested(request: CapabilityRunRequest) -> bool:
     )
 
 
-def enqueue_capability_run(capability_id: str) -> TaskRecord:
-    return task_store.create_queued(capability_id)
+def enqueue_capability_run(
+    capability_id: str,
+    owner_identity: RequestIdentity,
+) -> TaskRecord:
+    return task_store.create_queued(capability_id, owner_identity)

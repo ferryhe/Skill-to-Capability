@@ -92,3 +92,6 @@ internal:
   runner: hermes
   model_policy: high_reasoning
   expose_skill_text: false
+  policy:
+    run_roles:
+      - developer

@@ -52,6 +52,27 @@ def valid_run_request() -> dict[str, Any]:
     }
 
 
+def token_identities_json() -> str:
+    return json.dumps(
+        [
+            {
+                "token": "tenant-a-developer-token",
+                "tenant_id": "tenant-a",
+                "role": "developer",
+            },
+            {
+                "token": "tenant-b-developer-token",
+                "tenant_id": "tenant-b",
+                "role": "developer",
+            },
+        ]
+    )
+
+
+def auth_headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
 def assert_no_private_response_tokens(body: dict[str, Any]) -> None:
     serialized = json.dumps(body)
     for token in PRIVATE_RESPONSE_TOKENS:
@@ -153,6 +174,94 @@ def test_cancel_queued_task_transitions_to_cancelled() -> None:
     result_response = client.get(f"/v1/tasks/{task_id}/result")
     assert result_response.status_code == 409
     assert_error_shape(result_response.json(), "task_cancelled")
+
+
+def test_cross_tenant_cannot_read_or_cancel_queued_task(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SKILL_GATEWAY_AUTH_MODE", raising=False)
+    monkeypatch.delenv("SKILL_GATEWAY_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("SKILL_GATEWAY_API_TOKENS", raising=False)
+    monkeypatch.setenv("SKILL_GATEWAY_API_TOKEN_IDENTITIES", token_identities_json())
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["options"]["execution_mode"] = "async"
+
+    run_response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+        headers=auth_headers("tenant-a-developer-token"),
+    )
+    assert run_response.status_code == 200
+    task_id = run_response.json()["task_id"]
+
+    owner_status = client.get(
+        f"/v1/tasks/{task_id}",
+        headers=auth_headers("tenant-a-developer-token"),
+    )
+    other_status = client.get(
+        f"/v1/tasks/{task_id}",
+        headers=auth_headers("tenant-b-developer-token"),
+    )
+    other_result = client.get(
+        f"/v1/tasks/{task_id}/result",
+        headers=auth_headers("tenant-b-developer-token"),
+    )
+    other_cancel = client.post(
+        f"/v1/tasks/{task_id}/cancel",
+        headers=auth_headers("tenant-b-developer-token"),
+    )
+    owner_cancel = client.post(
+        f"/v1/tasks/{task_id}/cancel",
+        headers=auth_headers("tenant-a-developer-token"),
+    )
+
+    assert owner_status.status_code == 200
+    assert other_status.status_code == 404
+    assert_error_shape(other_status.json(), "task_not_found")
+    assert other_result.status_code == 404
+    assert_error_shape(other_result.json(), "task_not_found")
+    assert other_cancel.status_code == 404
+    assert_error_shape(other_cancel.json(), "task_not_found")
+    assert owner_cancel.status_code == 200
+    assert owner_cancel.json()["status"] == "cancelled"
+
+
+def test_cross_tenant_cannot_read_completed_task_result(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("SKILL_GATEWAY_AUTH_MODE", raising=False)
+    monkeypatch.delenv("SKILL_GATEWAY_AUTH_DISABLED", raising=False)
+    monkeypatch.delenv("SKILL_GATEWAY_API_TOKENS", raising=False)
+    monkeypatch.setenv("SKILL_GATEWAY_API_TOKEN_IDENTITIES", token_identities_json())
+    monkeypatch.setattr(
+        capabilities_api,
+        "_runner_for_capability",
+        lambda _runner_name: MockCapabilityRunner(),
+    )
+    client = TestClient(app)
+
+    run_response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=valid_run_request(),
+        headers=auth_headers("tenant-a-developer-token"),
+    )
+    assert run_response.status_code == 200
+    task_id = run_response.json()["task_id"]
+
+    other_result = client.get(
+        f"/v1/tasks/{task_id}/result",
+        headers=auth_headers("tenant-b-developer-token"),
+    )
+    owner_result = client.get(
+        f"/v1/tasks/{task_id}/result",
+        headers=auth_headers("tenant-a-developer-token"),
+    )
+
+    assert other_result.status_code == 404
+    assert_error_shape(other_result.json(), "task_not_found")
+    assert owner_result.status_code == 200
+    assert owner_result.json() == run_response.json()["result"]
 
 
 def test_completed_task_cannot_be_cancelled(monkeypatch: pytest.MonkeyPatch) -> None:

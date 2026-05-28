@@ -2,10 +2,13 @@ from copy import deepcopy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from threading import RLock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from .models import CapabilityRunResult, TaskError, TaskStatus
+
+if TYPE_CHECKING:
+    from gateway.app.auth.models import RequestIdentity
 
 
 @dataclass(frozen=True)
@@ -17,6 +20,10 @@ class TaskRecord:
     updated_at: datetime
     result: CapabilityRunResult | None = None
     error: TaskError | None = None
+    owner_auth_mode: str | None = None
+    owner_tenant_id: str | None = None
+    owner_role: str | None = None
+    owner_token_id: str | None = None
 
 
 class InMemoryTaskStore:
@@ -24,7 +31,11 @@ class InMemoryTaskStore:
         self._tasks: dict[str, TaskRecord] = {}
         self._lock = RLock()
 
-    def create_queued(self, capability_id: str) -> TaskRecord:
+    def create_queued(
+        self,
+        capability_id: str,
+        owner_identity: "RequestIdentity | None" = None,
+    ) -> TaskRecord:
         now = _utc_now()
         task = TaskRecord(
             task_id=f"task_{uuid4().hex}",
@@ -32,6 +43,7 @@ class InMemoryTaskStore:
             status="queued",
             created_at=now,
             updated_at=now,
+            **_owner_fields(owner_identity),
         )
         with self._lock:
             self._tasks[task.task_id] = task
@@ -41,6 +53,7 @@ class InMemoryTaskStore:
         self,
         capability_id: str,
         result: CapabilityRunResult,
+        owner_identity: "RequestIdentity | None" = None,
     ) -> TaskRecord:
         now = _utc_now()
         stored_result = result.model_copy(deep=True)
@@ -51,6 +64,7 @@ class InMemoryTaskStore:
             created_at=now,
             updated_at=now,
             result=stored_result,
+            **_owner_fields(owner_identity),
         )
         with self._lock:
             self._tasks[task.task_id] = task
@@ -69,6 +83,10 @@ class InMemoryTaskStore:
                 updated_at=_utc_now(),
                 result=task.result,
                 error=task.error,
+                owner_auth_mode=task.owner_auth_mode,
+                owner_tenant_id=task.owner_tenant_id,
+                owner_role=task.owner_role,
+                owner_token_id=task.owner_token_id,
             )
             self._tasks[task_id] = updated
             return _copy_task(updated)
@@ -96,6 +114,10 @@ class InMemoryTaskStore:
                     message="Task failed.",
                     details={},
                 ),
+                owner_auth_mode=task.owner_auth_mode,
+                owner_tenant_id=task.owner_tenant_id,
+                owner_role=task.owner_role,
+                owner_token_id=task.owner_token_id,
             )
             self._tasks[task_id] = updated
             return _copy_task(updated)
@@ -111,6 +133,10 @@ class InMemoryTaskStore:
                 status="cancelled",
                 created_at=task.created_at,
                 updated_at=_utc_now(),
+                owner_auth_mode=task.owner_auth_mode,
+                owner_tenant_id=task.owner_tenant_id,
+                owner_role=task.owner_role,
+                owner_token_id=task.owner_token_id,
             )
             self._tasks[task_id] = updated
             return _copy_task(updated)
@@ -134,6 +160,22 @@ def _copy_existing_task(task: TaskRecord) -> TaskRecord:
 
 def _copy_task(task: TaskRecord | None) -> TaskRecord | None:
     return _copy_existing_task(task) if task is not None else None
+
+
+def _owner_fields(identity: "RequestIdentity | None") -> dict[str, str | None]:
+    if identity is None:
+        return {
+            "owner_auth_mode": None,
+            "owner_tenant_id": None,
+            "owner_role": None,
+            "owner_token_id": None,
+        }
+    return {
+        "owner_auth_mode": identity.auth_mode,
+        "owner_tenant_id": identity.tenant_id,
+        "owner_role": identity.role,
+        "owner_token_id": identity.token_id,
+    }
 
 
 task_store = InMemoryTaskStore()
