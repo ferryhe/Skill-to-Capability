@@ -117,6 +117,7 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
+    "package:vsix": "npm run compile && vsce package --no-dependencies",
     "test:workspaceCollector": "npm run compile && node --test out/test/workspaceCollector.test.js",
     "test:runCapability": "npm run compile && node --test out/test/client.test.js out/test/reportPanel.test.js out/test/runCapability.test.js",
     "test:applyPatch": "npm run compile && node --test out/test/applyPatch.test.js",
@@ -126,6 +127,7 @@
   "devDependencies": {
     "@types/node": "20.12.12",
     "@types/vscode": "1.90.0",
+    "@vscode/vsce": "3.9.1",
     "typescript": "5.4.5"
   }
 }

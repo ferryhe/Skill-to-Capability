@@ -11,8 +11,21 @@
     "company-skill-mcp": "./dist/server.js"
   },
   "main": "./dist/server.js",
+  "files": [
+    "dist/config.js",
+    "dist/config.js.map",
+    "dist/gatewayClient.js",
+    "dist/gatewayClient.js.map",
+    "dist/security.js",
+    "dist/security.js.map",
+    "dist/server.js",
+    "dist/server.js.map",
+    "README.md"
+  ],
   "scripts": {
     "build": "tsc -p ./",
+    "prepack": "npm run build",
+    "pack:local": "npm pack",
     "test:config": "npm run build && node --test dist/test/config.test.js",
     "test:gatewayClient": "npm run build && node --test dist/test/gatewayClient.test.js",
     "test:security": "npm run build && node --test dist/test/security.test.js",

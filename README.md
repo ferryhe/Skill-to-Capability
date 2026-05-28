@@ -59,6 +59,7 @@ python3 scripts/validate-contracts.py
 - [MCP Adapter Contract](docs/mcp-adapter.md)
 - [MCP Smoke](docs/mcp-smoke.md)
 - [H2 E2E Smoke](docs/e2e-smoke.md)
+- [Deployment](docs/deployment.md)
 - [开发计划](docs/plans/skill-capability-platform.md)
 - [全量开发推进路线图](docs/development-roadmap.md)
 - [项目状态](docs/project-status.md)

@@ -134,3 +134,48 @@ jobs:
       - name: Run MCP adapter tests
         working-directory: mcp-adapter
         run: npm test
+
+  release-packaging:
+    name: release packaging
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build Gateway image
+        run: docker build -t skill-gateway:0.1.0 -f gateway/Dockerfile gateway
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            vscode-extension/package-lock.json
+            mcp-adapter/package-lock.json
+
+      - name: Install VSCode extension dependencies
+        working-directory: vscode-extension
+        run: npm ci
+
+      - name: Package VSIX
+        working-directory: vscode-extension
+        run: npm run package:vsix
+
+      - name: Install MCP adapter dependencies
+        working-directory: mcp-adapter
+        run: npm ci
+
+      - name: Pack MCP adapter
+        working-directory: mcp-adapter
+        run: npm run pack:local
+
+      - name: Install MCP adapter tarball locally
+        run: |
+          install_dir="$(mktemp -d)"
+          cd "$install_dir"
+          npm init -y
+          npm install "$GITHUB_WORKSPACE/mcp-adapter/skill-capability-mcp-adapter-0.1.0.tgz"
+          test -x node_modules/.bin/company-skill-mcp
+          node --input-type=module -e "import('./node_modules/skill-capability-mcp-adapter/dist/server.js').then((m) => { if (m.MCP_ADAPTER_SERVER_INFO.name !== 'skill-capability-mcp-adapter') process.exit(1); })"
