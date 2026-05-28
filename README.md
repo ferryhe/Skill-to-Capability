@@ -36,11 +36,15 @@ skill-capability-platform/
 
 ## 当前状态
 
-本仓库先建立产品架构、接口契约和开发计划。第一阶段建议以一个真实私有 skill 做闭环验证：
+当前开发路线图已推进完成到 H4。仓库包含 Gateway、VSCode Extension、MCP Adapter、契约 schema、端到端示例、CI，以及本地 release packaging 基线。最新完成状态以 [项目状态](docs/project-status.md) 为准。
+
+已闭环验证的主路径：
 
 ```text
 SKILL.md -> capability manifest -> gateway run -> VSCode report -> patch apply -> MCP run
 ```
+
+发布/部署打包入口见 [Deployment](docs/deployment.md)。
 
 ## 本地验证
 
@@ -48,6 +52,8 @@ SKILL.md -> capability manifest -> gateway run -> VSCode report -> patch apply -
 python3 -m pip install -r requirements-dev.txt
 python3 scripts/validate-contracts.py
 ```
+
+完整组件验证和 packaging 命令记录在 [项目状态](docs/project-status.md)。
 
 ## 文档入口
 
