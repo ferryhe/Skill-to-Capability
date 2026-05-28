@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .policy import CapabilityPolicy
+
 
 PermissionMode = bool | Literal["never", "optional", "required"]
 
@@ -41,6 +43,7 @@ class InternalManifest(BaseModel):
     model_policy: str | None = None
     required_env: list[str] | None = None
     required_commands: list[str] | None = None
+    policy: CapabilityPolicy | None = None
 
 
 class CapabilityManifest(BaseModel):

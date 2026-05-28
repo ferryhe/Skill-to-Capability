@@ -745,6 +745,8 @@ gateway/tests/test_auth.py
 
 ### PR G2：Capability policy
 
+**状态：完成（当前 G2 implementation branch，未声明已合并）**
+
 **范围**
 - tenant allowlist。
 - role-based capability run permissions。

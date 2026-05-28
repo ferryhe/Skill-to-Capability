@@ -22,16 +22,35 @@ Authorization: Bearer <token>
 
 Gateway local configuration:
 
+- `SKILL_GATEWAY_API_TOKEN_IDENTITIES`: JSON array of token identity records.
+  Each record contains `token`, `tenant_id`, and `role` (`viewer` or
+  `developer`). In token auth mode, these server-side records are the source of
+  tenant/role policy identity. If this variable is present but malformed,
+  Gateway fails protected requests closed with `401`.
 - `SKILL_GATEWAY_API_TOKENS`: comma-separated allowed API tokens.
 - `SKILL_GATEWAY_AUTH_MODE=dev`: explicit local development bypass.
 - `SKILL_GATEWAY_AUTH_DISABLED=true`: explicit local development bypass.
 
+Example token identity config:
+
+```json
+[
+  {
+    "token": "dev-only-placeholder-token",
+    "tenant_id": "tenant-a",
+    "role": "viewer"
+  }
+]
+```
+
 If no allowed tokens are configured and no explicit bypass is set, protected
 endpoints fail closed with `401`. Gateway builds a server-side request identity
-containing auth mode, a non-reversible token id, and tenant id from
-`X-Tenant-Id` or `default`; raw tokens are not exposed in responses or errors.
-G1 only authenticates and records tenant identity. Per-capability tenant
-allowlists and role policy are G2.
+containing auth mode, a non-reversible token id, tenant id, and role. In token
+mode, tenant id and role come from the matched `SKILL_GATEWAY_API_TOKEN_IDENTITIES`
+record. Legacy `SKILL_GATEWAY_API_TOKENS` entries without identity metadata use
+tenant `default` and role `developer`; request headers cannot escalate them.
+Only explicit local dev bypass mode reads `X-Tenant-Id` and `X-User-Role` as
+local test identity overrides. Raw tokens are not exposed in responses or errors.
 
 Authentication errors use the public error shape and include
 `WWW-Authenticate: Bearer`:
@@ -61,7 +80,10 @@ Authentication errors use the public error shape and include
 返回当前用户可见的 public capability list。
 
 Public capability view 来自 manifest allowlist。必须不包含 `internal` 字段，也不得包含
-prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。
+prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。Gateway 会根据
+server-only capability policy 过滤 tenant/role 不可见的 capability。若
+`internal.policy.view_roles` 未配置但 `run_roles` 已配置，`run_roles` 同时作为
+默认 visibility roles，因此 viewer 不会发现 developer-only capability。
 
 ```json
 {
@@ -185,7 +207,8 @@ prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。
 ## GET /capabilities/{id}
 
 返回一个 public capability detail，字段 shape 与 list item 一致。不得返回 `internal`、
-prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。
+prompt、trace、skill body、`skill_text` 或 server-only manifest 字段。若当前 identity
+不满足 capability tenant visibility policy，响应与不存在的 capability 相同，返回 `404`。
 
 Endpoint response example:
 
@@ -395,7 +418,11 @@ Gateway 内部保存的 full manifest 可以包含 server-only `internal` 字段
     "skill_ref": "backend-rbac-review",
     "runner": "hermes",
     "model_policy": "high_reasoning",
-    "expose_skill_text": false
+    "expose_skill_text": false,
+    "policy": {
+      "tenant_allowlist": ["tenant-a"],
+      "run_roles": ["developer"]
+    }
   }
 }
 ```
@@ -403,6 +430,15 @@ Gateway 内部保存的 full manifest 可以包含 server-only `internal` 字段
 ## POST /capabilities/{id}/run
 
 同步或异步启动 capability。
+
+Run is allowed only when the authenticated identity can see the capability and
+its role is present in server-only `internal.policy.run_roles` when that list is
+configured. If `view_roles` is omitted, a role not present in `run_roles` cannot
+see or run the capability and receives the same `404 capability_not_found` shape
+as a missing capability. A visible capability that denies run permission returns
+`403` with code `capability_forbidden`. Omitted policy fields preserve existing
+behavior: all authenticated tenants can see the capability and all supported
+roles can run it.
 
 Request:
 
@@ -468,6 +504,8 @@ Long-running tasks may return:
 ## GET /tasks/{task_id}
 
 返回任务状态。
+Tasks are bound to the identity that created them. A different tenant/role/token
+identity receives sanitized `404 task_not_found`.
 
 ```json
 {
@@ -483,6 +521,8 @@ Long-running tasks may return:
 
 返回 `run-result.schema.json` shape 的任务结果。不得返回 prompt、trace、skill body、
 `skill_text`、`internal` 或 raw runner output。
+Only the task owner identity can read the result; non-owner identities receive
+sanitized `404 task_not_found`.
 
 ```json
 {
@@ -509,6 +549,9 @@ Long-running tasks may return:
 ## POST /tasks/{task_id}/cancel
 
 取消任务。
+Only the task owner identity can cancel queued/running tasks. Non-owner
+identities receive sanitized `404 task_not_found`; owner identities still receive
+the existing state-specific conflict errors for non-cancellable tasks.
 
 ## Error shape
 

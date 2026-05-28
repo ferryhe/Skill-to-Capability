@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from gateway.app.api import capabilities as capabilities_api
+from gateway.app.auth.models import RequestIdentity
 from gateway.app.capabilities.manifest import CapabilityManifest
 from gateway.app.capabilities.registry import default_registry
 from gateway.app.main import app
@@ -395,9 +396,10 @@ def test_run_capability_converts_hermes_error_without_exception_chain(
     use_capability(monkeypatch, backend_rbac_capability())
     monkeypatch.setattr("gateway.app.runners.hermes_runner.subprocess.run", run_process)
     request = capabilities_api.CapabilityRunRequest.model_validate(valid_run_request())
+    identity = RequestIdentity(auth_mode="dev", tenant_id="default", role="developer")
 
     with pytest.raises(HTTPException) as exc_info:
-        capabilities_api.run_capability("backend-rbac-review", request)
+        capabilities_api.run_capability("backend-rbac-review", request, identity)
 
     assert_no_exception_chain(exc_info.value)
     assert_sanitized_exception(exc_info.value, RAW_RUNNER_STDOUT, RAW_RUNNER_STDERR)

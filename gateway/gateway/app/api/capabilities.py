@@ -4,6 +4,7 @@ from .errors import api_error
 from ..auth.dependencies import require_request_identity
 from ..auth.models import RequestIdentity
 from ..capabilities.manifest import SecurityPolicy
+from ..capabilities.policy import can_run_capability, is_capability_visible
 from ..capabilities.registry import default_registry
 from ..runners.base import CapabilityRunner
 from ..runners.hermes_runner import HermesCapabilityRunner, HermesRunnerError
@@ -32,20 +33,26 @@ FILE_LIKE_INPUT_MODES = {"current_file", "selected_files", "workspace_snapshot"}
 
 @router.get("/capabilities")
 def list_capabilities(
-    _identity: RequestIdentity = Depends(require_request_identity),
+    identity: RequestIdentity = Depends(require_request_identity),
 ) -> dict[str, list[dict]]:
     registry = default_registry()
-    return {"capabilities": registry.list_public()}
+    return {
+        "capabilities": [
+            capability.public_view()
+            for capability in registry.list_all()
+            if is_capability_visible(capability, identity)
+        ]
+    }
 
 
 @router.get("/capabilities/{capability_id}")
 def get_capability(
     capability_id: str,
-    _identity: RequestIdentity = Depends(require_request_identity),
+    identity: RequestIdentity = Depends(require_request_identity),
 ) -> dict:
     registry = default_registry()
     capability = registry.find(capability_id)
-    if capability is None:
+    if capability is None or not is_capability_visible(capability, identity):
         raise api_error(
             status_code=404,
             code="capability_not_found",
@@ -58,15 +65,21 @@ def get_capability(
 def run_capability(
     capability_id: str,
     request: CapabilityRunRequest,
-    _identity: RequestIdentity = Depends(require_request_identity),
+    identity: RequestIdentity = Depends(require_request_identity),
 ) -> dict:
     registry = default_registry()
     capability = registry.find(capability_id)
-    if capability is None:
+    if capability is None or not is_capability_visible(capability, identity):
         raise api_error(
             status_code=404,
             code="capability_not_found",
             message="Capability not found",
+        )
+    if not can_run_capability(capability, identity):
+        raise api_error(
+            status_code=403,
+            code="capability_forbidden",
+            message="Capability is not available for this identity.",
         )
 
     _validate_selection_range(request)
@@ -87,7 +100,7 @@ def run_capability(
         ) from exc
 
     if is_async_requested(request):
-        task = enqueue_capability_run(capability.id)
+        task = enqueue_capability_run(capability.id, identity)
         return CapabilityTaskQueued(
             task_id=task.task_id,
             status="queued",
@@ -107,7 +120,7 @@ def run_capability(
             message=runner_error_message,
         )
     result = filter_capability_run_result(raw_result)
-    task = task_store.create_completed(capability.id, result)
+    task = task_store.create_completed(capability.id, result, identity)
     task_result = CapabilityTaskResult(
         task_id=task.task_id,
         status="completed",

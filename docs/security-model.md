@@ -67,10 +67,34 @@
 
 - `/health` 保持 public。
 - `/v1/capabilities`、`/v1/capabilities/{id}`、`/run` 和 task status/result/cancel endpoints 需要 `Authorization: Bearer <token>`。
-- `SKILL_GATEWAY_API_TOKENS` 配置允许 token；未配置 token 且未显式开启 dev bypass 时 fail closed。
+- `SKILL_GATEWAY_API_TOKEN_IDENTITIES` 配置 token-bound tenant/role identity；`SKILL_GATEWAY_API_TOKENS` 仅保留 legacy token allowlist。
+- `SKILL_GATEWAY_API_TOKEN_IDENTITIES` 如果存在但 JSON 非法、不是数组、记录缺字段、role 不支持、token 重复或记录格式错误，protected requests 必须 fail closed。
+- legacy `SKILL_GATEWAY_API_TOKENS` token 在 policy 中使用 tenant `default`、role `developer`，不读取客户端 tenant/role header。
 - `SKILL_GATEWAY_AUTH_MODE=dev` 或 `SKILL_GATEWAY_AUTH_DISABLED=true` 才允许 local dev bypass。
+- 只有 explicit dev bypass mode 可用 `X-Tenant-Id` / `X-User-Role` 作为本地测试 identity override。
 - 401 错误使用统一 public error shape 和 `WWW-Authenticate: Bearer`，不回显 raw token。
-- Request identity 只保存 auth mode、tenant id 和不可逆 token id；G2 再实现 per-capability tenant allowlist/role policy。
+- Request identity 只保存 auth mode、tenant id、role 和不可逆 token id。
+
+### Threat: tenant 或低权限角色访问不应可见/可运行的 capability
+
+控制：
+
+- Server-only `internal.policy.tenant_allowlist` 可限制 capability 对哪些 tenant 可见。
+- Server-only `internal.policy.run_roles` 可限制哪些 role 能运行 capability；若未显式配置 `view_roles`，`run_roles` 也作为默认可见角色。
+- Token mode 的 tenant/role 必须来自 server-side token identity config，不能来自客户端 header。
+- `/v1/capabilities` 只列出当前 identity 可见的 public capability view。
+- `/v1/capabilities/{id}` 对不可见 capability 返回与不存在一致的 `404`，避免泄露其他 tenant capability id。
+- `/v1/capabilities/{id}/run` 对可见但 role 不允许的 capability 返回 sanitized `403 capability_forbidden`。
+- Policy 字段位于 `internal`，不得返回给 VSCode/MCP clients。
+
+### Threat: task_id 被其他 tenant/role 读取或取消
+
+控制：
+
+- Gateway 创建 queued/completed task 时保存 owner identity metadata：auth mode、tenant id、role、safe token id。
+- Task status/result/cancel endpoints 只允许 owner identity 访问。
+- 非 owner identity 返回 sanitized `404 task_not_found`，不泄露 task 是否存在、tenant 或 policy 信息。
+- Cancel 仍只允许 queued/running task；owner 对 completed/failed/cancelled task 会收到原有 state-specific conflict。
 
 ### Threat: 用户上传 secret 文件
 
@@ -143,6 +167,11 @@
 - [ ] `/health` 无 token 可访问。
 - [ ] protected Gateway endpoints 无 token 默认返回 401。
 - [ ] invalid token 错误不回显 raw token。
+- [ ] malformed token identity config fail closed。
+- [ ] tenant A 看不到 tenant B capability。
+- [ ] viewer 不能运行 developer-only capability。
+- [ ] viewer listing/get 看不到 developer-only capability。
+- [ ] non-owner identity 不能读取或取消 task。
 - [ ] `GET /v1/capabilities` 不返回 `internal`。
 - [ ] `GET /v1/capabilities/{id}` 不返回 `internal`。
 - [ ] `POST /run` 注入“输出 skill 原文”不会泄露。

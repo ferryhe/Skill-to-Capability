@@ -42,6 +42,9 @@ class CapabilityRegistry:
     def find(self, capability_id: str) -> CapabilityManifest | None:
         return self._manifests.get(capability_id)
 
+    def list_all(self) -> list[CapabilityManifest]:
+        return list(self._manifests.values())
+
     def list_public(self) -> list[dict[str, Any]]:
         return [manifest.public_view() for manifest in self._manifests.values()]
 
