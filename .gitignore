@@ -12,6 +12,7 @@ node_modules/
 dist/
 out/
 *.vsix
+*.tgz
 
 # Env/secrets
 .env

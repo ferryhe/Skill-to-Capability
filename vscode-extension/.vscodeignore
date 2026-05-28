@@ -1,0 +1,14 @@
+.gitignore
+.vscode/**
+node_modules/**
+src/**
+out/test/**
+out/**/*.test.js
+out/**/*.test.js.map
+*.vsix
+tsconfig.json
+package-lock.json
+npm-debug.log*
+yarn-error.log*
+coverage/**
+.nyc_output/**

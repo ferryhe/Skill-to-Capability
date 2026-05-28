@@ -1,0 +1,16 @@
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+tests/
+scripts/
+*.egg-info/
+build/
+dist/
+.env
+.env.*
+*.pem
+*.key
+id_rsa
+credentials.json
