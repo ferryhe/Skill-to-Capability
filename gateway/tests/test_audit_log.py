@@ -354,3 +354,37 @@ def test_store_drops_non_sk_token_shapes_in_metadata() -> None:
         "finding_count": 1,
     }
     assert_audit_is_sanitized([event])
+
+
+def test_store_drops_non_dict_metadata_values() -> None:
+    event = audit_store.record_task_lifecycle(
+        action="queued",
+        capability_id="backend-rbac-review",
+        task_id="task_non_dict_metadata",
+        input_metadata=["execution_mode", "async"],
+        output_metadata="status=completed",
+    )
+    approval_event = audit_store.record_approval_event(
+        action="approved",
+        capability_id="backend-rbac-review",
+        task_id="task_non_dict_metadata",
+        actor=None,
+        approval_metadata=("approval_type", "apply_patch"),
+    )
+
+    assert event.input_metadata is None
+    assert event.output_metadata is None
+    assert approval_event.approval_metadata is None
+    assert_audit_is_sanitized([event, approval_event])
+
+
+def test_list_for_task_normalizes_lookup_task_id() -> None:
+    event = audit_store.record_task_lifecycle(
+        action="queued",
+        capability_id="backend-rbac-review",
+        task_id="task_lookup_case",
+        input_metadata={"execution_mode": "async"},
+    )
+
+    assert audit_store.list_for_task("task_LOOKUP_CASE") == [event]
+    assert audit_store.list_for_task(f"task_{RAW_SECRET}") == []

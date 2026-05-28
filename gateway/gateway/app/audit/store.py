@@ -143,8 +143,11 @@ class InMemoryAuditStore:
         return self._append(event)
 
     def list_for_task(self, task_id: str) -> list[AuditEvent]:
+        normalized_task_id = _normalize_task_id(task_id)
+        if normalized_task_id is None:
+            return []
         with self._lock:
-            return [deepcopy(event) for event in self._events if event.task_id == task_id]
+            return [deepcopy(event) for event in self._events if event.task_id == normalized_task_id]
 
     def list_all(self) -> list[AuditEvent]:
         with self._lock:
@@ -188,7 +191,7 @@ def _audit_actor(actor: RequestIdentity | AuditActor | None) -> AuditActor | Non
 
 
 def _allow_task_input_metadata(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
-    if metadata is None:
+    if not isinstance(metadata, dict):
         return None
 
     allowed: dict[str, Any] = {}
@@ -201,7 +204,7 @@ def _allow_task_input_metadata(metadata: dict[str, Any] | None) -> dict[str, Any
 
 
 def _allow_task_output_metadata(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
-    if metadata is None:
+    if not isinstance(metadata, dict):
         return None
 
     allowed: dict[str, Any] = {}
@@ -223,7 +226,7 @@ def _allow_task_output_metadata(metadata: dict[str, Any] | None) -> dict[str, An
 
 
 def _allow_approval_metadata(metadata: dict[str, Any] | None) -> dict[str, Any] | None:
-    if metadata is None:
+    if not isinstance(metadata, dict):
         return None
 
     allowed: dict[str, Any] = {}
