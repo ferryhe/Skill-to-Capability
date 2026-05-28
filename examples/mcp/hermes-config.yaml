@@ -1,0 +1,15 @@
+# Placeholder Hermes MCP config for local smoke testing.
+# Keep real tokens in the shell, OS secret storage, or an untracked local file.
+# ${SKILL_GATEWAY_TOKEN} expansion depends on the MCP client. If unsupported,
+# remove env to inherit the shell environment, or use an untracked local copy.
+mcp_servers:
+  company-skill-mcp:
+    transport: stdio
+    command: company-skill-mcp
+    args:
+      - --gateway-url
+      - http://127.0.0.1:8000
+      - --tenant-id
+      - local-dev
+    env:
+      SKILL_GATEWAY_TOKEN: ${SKILL_GATEWAY_TOKEN}

@@ -236,30 +236,33 @@ Exact Gateway request body sent to `/v1/capabilities/backend-rbac-review/run`:
 }
 ```
 
-Output returns task metadata plus the public `run-result.schema.json` result fields. It must
-not include prompt, trace, skill body, `skill_text`, `internal`, or raw runner output.
+Output returns task metadata plus the public `run-result.schema.json` fields nested
+under `result` for completed sync runs. It must not include prompt, trace, skill
+body, `skill_text`, `internal`, or raw runner output.
 
 ```json
 {
   "task_id": "task_01H...",
   "status": "completed",
-  "summary": "Found one RBAC boundary issue and proposed a focused patch.",
-  "findings": [
-    {
-      "severity": "high",
-      "path": "app.py",
-      "line": 12,
-      "title": "Public endpoint returns sensitive field",
-      "message": "The response should omit internal_path for unauthenticated callers."
-    }
-  ],
-  "patch": "diff --git a/app.py b/app.py\n",
-  "recommended_tests": [
-    "pytest tests/test_rbac.py -q"
-  ],
-  "artifacts": [],
-  "safe_rationale": "The patch removes a sensitive field from the public response.",
-  "confidence": 0.82
+  "result": {
+    "summary": "Found one RBAC boundary issue and proposed a focused patch.",
+    "findings": [
+      {
+        "severity": "high",
+        "path": "app.py",
+        "line": 12,
+        "title": "Public endpoint returns sensitive field",
+        "message": "The response should omit internal_path for unauthenticated callers."
+      }
+    ],
+    "patch": "diff --git a/app.py b/app.py\n",
+    "recommended_tests": [
+      "pytest tests/test_rbac.py -q"
+    ],
+    "artifacts": [],
+    "safe_rationale": "The patch removes a sensitive field from the public response.",
+    "confidence": 0.82
+  }
 }
 ```
 
