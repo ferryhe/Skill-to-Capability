@@ -764,6 +764,8 @@ gateway/tests/test_capability_policy.py
 
 ### PR G3：Audit log
 
+**状态：完成（当前 G3 implementation branch，未声明已合并）**
+
 **范围**
 - task audit event。
 - input metadata。

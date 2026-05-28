@@ -86,6 +86,7 @@ def run_capability(
     _validate_request_input_modes(capability.input_modes, request)
     workspace_files = _workspace_files_from_request(request)
     text_inputs = _text_inputs_from_request(request)
+    audit_input_metadata = _audit_input_metadata(request)
     try:
         validated_files = validate_workspace_context_inputs(
             workspace_files,
@@ -100,7 +101,11 @@ def run_capability(
         ) from exc
 
     if is_async_requested(request):
-        task = enqueue_capability_run(capability.id, identity)
+        task = enqueue_capability_run(
+            capability.id,
+            identity,
+            audit_input_metadata,
+        )
         return CapabilityTaskQueued(
             task_id=task.task_id,
             status="queued",
@@ -120,7 +125,13 @@ def run_capability(
             message=runner_error_message,
         )
     result = filter_capability_run_result(raw_result)
-    task = task_store.create_completed(capability.id, result, identity)
+    task = task_store.create_completed(
+        capability.id,
+        result,
+        identity,
+        input_metadata=audit_input_metadata,
+        output_metadata=_audit_output_metadata(result),
+    )
     task_result = CapabilityTaskResult(
         task_id=task.task_id,
         status="completed",
@@ -232,6 +243,46 @@ def _text_inputs_from_request(
             content=request.workspace.git_diff,
         )
     ]
+
+
+def _audit_input_metadata(request: CapabilityRunRequest) -> dict[str, object]:
+    workspace = request.workspace
+    files = workspace.files if workspace is not None else []
+    git_diff = workspace.git_diff if workspace is not None else None
+    selection = workspace.selection if workspace is not None else None
+    return {
+        "execution_mode": "async" if is_async_requested(request) else "sync",
+        "instruction_length": len(request.instruction),
+        "workspace_file_count": len(files),
+        "workspace_file_bytes": sum(_text_size(file.content) for file in files),
+        "has_git_diff": git_diff is not None,
+        "git_diff_bytes": _text_size(git_diff),
+        "has_selection": selection is not None,
+        "selection_bytes": _text_size(selection.content if selection else None),
+        "option_count": len(request.options or {}),
+        "client_type": request.client.type if request.client is not None else None,
+    }
+
+
+def _audit_output_metadata(result: object) -> dict[str, object]:
+    if not hasattr(result, "model_dump"):
+        return {"status": "completed"}
+    dumped = result.model_dump(mode="json")
+    return {
+        "status": "completed",
+        "result_keys": sorted(dumped.keys()),
+        "finding_count": len(getattr(result, "findings", [])),
+        "artifact_count": len(getattr(result, "artifacts", [])),
+        "recommended_test_count": len(getattr(result, "recommended_tests", [])),
+        "patch_present": getattr(result, "patch", None) is not None,
+        "result_size_bytes": len(result.model_dump_json().encode("utf-8")),
+    }
+
+
+def _text_size(value: str | None) -> int:
+    if value is None:
+        return 0
+    return len(value.encode("utf-8"))
 
 
 def _input_policy_from_security(security: SecurityPolicy | None) -> InputPolicy:

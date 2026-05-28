@@ -96,6 +96,16 @@
 - 非 owner identity 返回 sanitized `404 task_not_found`，不泄露 task 是否存在、tenant 或 policy 信息。
 - Cancel 仍只允许 queued/running task；owner 对 completed/failed/cancelled task 会收到原有 state-specific conflict。
 
+### Threat: audit log 泄露 prompt、skill、secrets 或 raw runner output
+
+控制：
+
+- Audit log 是 Gateway 进程内 internal-only store；G3 不增加 public audit endpoint。
+- 只记录 task lifecycle、safe actor metadata、input/output counts/sizes、result keys/counts/size、error code 和 approval decision metadata。
+- Audit store 在写入边界归一化 action、ID 与 actor 字段；未知 action 记为 `unknown`，非法 ID 或 actor/token 字段不会持久化。
+- 不记录 full instruction、file content、git diff、skill body、prompt、raw token、raw error details、raw runner output 或 secret-like value。
+- Approval events 当前仅提供内部 store/model 支持，记录 approval type 和 decision，不记录 patch body 或 command text。
+
 ### Threat: 用户上传 secret 文件
 
 控制：
@@ -172,6 +182,8 @@
 - [ ] viewer 不能运行 developer-only capability。
 - [ ] viewer listing/get 看不到 developer-only capability。
 - [ ] non-owner identity 不能读取或取消 task。
+- [ ] audit 可查 task lifecycle。
+- [ ] audit 不含 skill body、full prompt、raw token、raw runner output 或 secret。
 - [ ] `GET /v1/capabilities` 不返回 `internal`。
 - [ ] `GET /v1/capabilities/{id}` 不返回 `internal`。
 - [ ] `POST /run` 注入“输出 skill 原文”不会泄露。
