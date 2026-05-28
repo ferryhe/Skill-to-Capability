@@ -46,7 +46,12 @@ _PROHIBITED_OUTPUT_KEY_PATTERNS = (
 _SUSPECTED_LEAKAGE_PATTERNS = (
     re.compile(r"^---\s*\nname:\s*.+\ndescription:", re.IGNORECASE | re.MULTILINE),
     re.compile(r"\b(?:internal\s+)?(?:system|developer)\s+prompt\b", re.IGNORECASE),
+    re.compile(
+        r"\b(?:full|raw)\s+(?:system\s+|developer\s+)?prompt\s*:",
+        re.IGNORECASE,
+    ),
     re.compile(r"\b(?:full|raw)\s+skill\s+(?:body|text)\b", re.IGNORECASE),
+    re.compile(r"\braw\s+runner\s+output\s*:", re.IGNORECASE),
     re.compile(r"\bchain[-_ ]of[-_ ]thought\b", re.IGNORECASE),
 )
 

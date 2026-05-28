@@ -2,7 +2,7 @@
 
 ## Current State
 
-Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, the D2 task store/async status API, the D3 real Hermes smoke script, the E1 VSCode extension skeleton/settings/auth placeholder, the E2 VSCode capability list UI, the E3 VSCode workspace context collector, the E4 VSCode run capability/report panel flow, the E5 VSCode patch preview/apply flow, the E6 VSCode recommended tests execution flow, the F1 MCP server skeleton, the F2 MCP list/run/status/result/cancel tools, the F3 Hermes/Cline smoke docs, the G1 Gateway token auth plus tenant identity baseline, the G2 capability policy baseline, and the G3 internal audit log baseline are complete on their implementation branches.
+Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc alignment, the Gateway skeleton/health baseline, the Gateway capability registry, Gateway input policy utilities, the Gateway mock run endpoint, Gateway output redaction/error filtering, the C1 SKILL.md parser/converter, the C2 `skillgw` CLI, the D1 Hermes runner contract, the D2 task store/async status API, the D3 real Hermes smoke script, the E1 VSCode extension skeleton/settings/auth placeholder, the E2 VSCode capability list UI, the E3 VSCode workspace context collector, the E4 VSCode run capability/report panel flow, the E5 VSCode patch preview/apply flow, the E6 VSCode recommended tests execution flow, the F1 MCP server skeleton, the F2 MCP list/run/status/result/cancel tools, the F3 Hermes/Cline smoke docs, the G1 Gateway token auth plus tenant identity baseline, the G2 capability policy baseline, the G3 internal audit log baseline, and the G4 security regression suite are complete on their implementation branches.
 
 ## Source of Truth
 
@@ -12,9 +12,9 @@ Repository bootstrap, roadmap definition, Contract Freeze baseline, contract doc
 
 ## Active Milestone
 
-**Milestone G: Auth, Tenant, Audit, Security Hardening**
+**Milestone H: End-to-end Closure and Release Prep**
 
-Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is complete with the D1 mockable Hermes runner contract, D2 task store/status lifecycle, and D3 real Hermes smoke script. Milestone E is complete with the VSCode extension package skeleton, settings contributions, SecretStorage token placeholder, public-only Gateway client, command palette capability refresh, Explorer tree view, public-field-only capability detail output, bounded workspace context collection for current file, selection, selected files, and git diff flows, Gateway run command wiring, a public-only report webview, remembered public patch output, diff preview, user confirmation, VSCode WorkspaceEdit patch application with workspace path policy checks, and user-confirmed recommended test execution in a workspace-scoped VSCode terminal. Milestone F has the F1 MCP adapter bootstrap, F2 tool surface, and F3 smoke docs in place on implementation branches with a TypeScript package, stdio server construction, Gateway client, env/CLI config handling, five registered public MCP tools, public-field stripping, token/error redaction tests, and safe Hermes/Cline/Roo-compatible MCP configuration examples. Milestone G has G1 Gateway API token authentication, G2 server-only capability policy with tenant visibility filtering and role-based run permissions, and G3 internal audit logging with sanitized task lifecycle/input/output/approval metadata.
+Gateway MVP work is complete through B5 with the minimal FastAPI service skeleton, health-check validation, capability registry endpoints, input policy validation, mock runner flow, output filtering, sensitive-value redaction, and unified public error responses in place. Milestone C is complete with C1 parser/converter support plus the C2 `skillgw` CLI for generating, validating, and listing capability manifests without exposing skill body text or internal manifest fields on stdout. Milestone D is complete with the D1 mockable Hermes runner contract, D2 task store/status lifecycle, and D3 real Hermes smoke script. Milestone E is complete with the VSCode extension package skeleton, settings contributions, SecretStorage token placeholder, public-only Gateway client, command palette capability refresh, Explorer tree view, public-field-only capability detail output, bounded workspace context collection for current file, selection, selected files, and git diff flows, Gateway run command wiring, a public-only report webview, remembered public patch output, diff preview, user confirmation, VSCode WorkspaceEdit patch application with workspace path policy checks, and user-confirmed recommended test execution in a workspace-scoped VSCode terminal. Milestone F has the F1 MCP adapter bootstrap, F2 tool surface, and F3 smoke docs in place on implementation branches with a TypeScript package, stdio server construction, Gateway client, env/CLI config handling, five registered public MCP tools, public-field stripping, token/error redaction tests, and safe Hermes/Cline/Roo-compatible MCP configuration examples. Milestone G has G1 Gateway API token authentication, G2 server-only capability policy with tenant visibility filtering and role-based run permissions, G3 internal audit logging with sanitized task lifecycle/input/output/approval metadata, and G4 security regression coverage for prompt injection, internal leakage, path traversal, secret upload, and error redaction.
 
 ## Completed
 
@@ -48,6 +48,7 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 - Added PR G1 token auth and tenant identity on branch `codex/pr-g1-token-auth-tenant` with protected capability/task endpoints, `Authorization: Bearer` token validation from `SKILL_GATEWAY_API_TOKENS`, fail-closed missing-config behavior, explicit `SKILL_GATEWAY_AUTH_MODE=dev` / `SKILL_GATEWAY_AUTH_DISABLED=true` local bypass, request identity tenant parsing, and sanitized 401 errors.
 - Added PR G2 capability policy on branch `codex/pr-g2-capability-policy` with server-only `internal.policy`, tenant allowlist visibility filtering for list/get/run, token-bound tenant/role identity from fail-closed `SKILL_GATEWAY_API_TOKEN_IDENTITIES`, legacy token defaults that do not trust tenant/role headers, task owner enforcement for status/result/cancel, explicit developer-only policy for the bundled patch-capable capability, sanitized 404/403 behavior, and tests proving tenant A cannot see tenant B capability while viewer/developer run permissions differ.
 - Added PR G3 internal audit log on branch `codex/pr-g3-audit-log` with in-memory audit models/store, sanitized task lifecycle events for queued/running/completed/failed/cancelled transitions, safe input/output metadata, safe actor metadata, approval event support, and tests proving audit can query task lifecycle without storing skill body, full prompt, raw tokens, raw runner output, or secrets.
+- Added PR G4 security regression suite on branch `codex/pr-g4-security-regression-suite` with Gateway tests for prompt injection, internal leakage, path traversal, secret upload, and error redaction, plus stricter output filtering for full prompt and raw runner output text.
 
 ## Milestone Baseline
 
@@ -57,8 +58,8 @@ Gateway MVP work is complete through B5 with the minimal FastAPI service skeleto
 
 ## Next PRs
 
-1. **PR G4: Security regression suite**
-   - Add prompt injection, internal leakage, file traversal, secret upload, and error redaction regression coverage.
+1. **PR H1: Local dev compose / scripts**
+   - Add local dev compose/scripts to run Gateway, VSCode, and MCP flows together.
 
 ## Verification Baseline
 
@@ -167,6 +168,16 @@ python -m pytest tests/ -q
 # Requires local Hermes CLI/config.
 python scripts/smoke_hermes_runner.py --capability backend-rbac-review --sample ../examples/sample-workspace
 python ../scripts/validate-contracts.py
+git diff --check
+```
+
+Gateway G4 validation:
+
+```bash
+cd gateway
+python -m pytest tests/security -q
+python -m pytest tests/test_output_filter.py tests/test_error_redaction.py tests/test_run_capability.py tests/test_input_policy.py tests/test_audit_log.py tests/test_hermes_runner_contract.py -q
+python -m pytest tests/ -q
 git diff --check
 ```
 
