@@ -80,12 +80,14 @@ def backend_rbac_capability() -> CapabilityManifest:
 
 def capability_with(
     *,
+    capability_id: str | None = None,
     input_modes: list[str] | None = None,
     runner: str = "mock",
 ) -> CapabilityManifest:
     capability = backend_rbac_capability()
     return capability.model_copy(
         update={
+            "id": capability_id or capability.id,
             "input_modes": input_modes or capability.input_modes,
             "internal": capability.internal.model_copy(update={"runner": runner}),
         }
@@ -139,6 +141,111 @@ def test_run_capability_returns_completed_mock_result_public_fields_only(
     assert isinstance(result["safe_rationale"], str)
     assert 0 <= result["confidence"] <= 1
     assert_no_private_response_tokens(body)
+
+
+def test_mock_runner_returns_sample_rbac_patch_when_requested(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    use_capability(monkeypatch, capability_with(runner="mock"))
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["files"] = [
+        {
+            "path": "app.py",
+            "content": "\n".join(
+                [
+                    "from dataclasses import dataclass",
+                    "",
+                    "",
+                    "@dataclass(frozen=True)",
+                    "class User:",
+                    "    username: str",
+                    "    role: str",
+                    "    is_active: bool = True",
+                    "",
+                    "",
+                    "def can_view_admin_report(user: User) -> bool:",
+                    "    # BUG: this grants every active user access to the admin report.",
+                    "    return user.is_active",
+                    "",
+                ]
+            ),
+        }
+    ]
+    request_body["options"]["return_patch"] = True
+
+    response = client.post(
+        "/v1/capabilities/backend-rbac-review/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    result = body["result"]
+    assert result["patch"].startswith("diff --git a/app.py b/app.py\n")
+    assert "-    return user.is_active" in result["patch"]
+    assert '+    return user.is_active and user.role == "admin"' in result["patch"]
+    assert result["recommended_tests"] == [
+        "python -m unittest discover -s tests -v"
+    ]
+    assert result["findings"][0]["path"] == "app.py"
+    assert_no_private_response_tokens(body)
+
+
+@pytest.mark.parametrize(
+    ("capability_id", "workspace_name"),
+    [
+        ("other-review", "sample-workspace"),
+        ("backend-rbac-review", "other-workspace"),
+    ],
+)
+def test_mock_runner_sample_patch_is_scoped_to_sample_workspace(
+    monkeypatch: pytest.MonkeyPatch,
+    capability_id: str,
+    workspace_name: str,
+) -> None:
+    use_capability(
+        monkeypatch,
+        capability_with(capability_id=capability_id, runner="mock"),
+    )
+    client = TestClient(app)
+    request_body = valid_run_request()
+    request_body["workspace"]["name"] = workspace_name
+    request_body["workspace"]["files"] = [
+        {
+            "path": "app.py",
+            "content": "\n".join(
+                [
+                    "from dataclasses import dataclass",
+                    "",
+                    "",
+                    "@dataclass(frozen=True)",
+                    "class User:",
+                    "    username: str",
+                    "    role: str",
+                    "    is_active: bool = True",
+                    "",
+                    "",
+                    "def can_view_admin_report(user: User) -> bool:",
+                    "    # BUG: this grants every active user access to the admin report.",
+                    "    return user.is_active",
+                    "",
+                ]
+            ),
+        }
+    ]
+    request_body["options"]["return_patch"] = True
+
+    response = client.post(
+        f"/v1/capabilities/{capability_id}/run",
+        json=request_body,
+    )
+
+    assert response.status_code == 200
+    result = response.json()["result"]
+    assert result["patch"] is None
+    assert result["findings"] == []
+    assert result["recommended_tests"] == ["python -m pytest"]
 
 
 def test_run_returns_public_error_for_unsupported_runner(
