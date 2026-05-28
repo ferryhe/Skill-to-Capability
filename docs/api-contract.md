@@ -2,6 +2,50 @@
 
 Base path: `/v1`
 
+## Authentication
+
+`/health` is public. The following endpoints require Gateway API token
+authentication:
+
+- `GET /v1/capabilities`
+- `GET /v1/capabilities/{id}`
+- `POST /v1/capabilities/{id}/run`
+- `GET /v1/tasks/{task_id}`
+- `GET /v1/tasks/{task_id}/result`
+- `POST /v1/tasks/{task_id}/cancel`
+
+Preferred token source:
+
+```http
+Authorization: Bearer <token>
+```
+
+Gateway local configuration:
+
+- `SKILL_GATEWAY_API_TOKENS`: comma-separated allowed API tokens.
+- `SKILL_GATEWAY_AUTH_MODE=dev`: explicit local development bypass.
+- `SKILL_GATEWAY_AUTH_DISABLED=true`: explicit local development bypass.
+
+If no allowed tokens are configured and no explicit bypass is set, protected
+endpoints fail closed with `401`. Gateway builds a server-side request identity
+containing auth mode, a non-reversible token id, and tenant id from
+`X-Tenant-Id` or `default`; raw tokens are not exposed in responses or errors.
+G1 only authenticates and records tenant identity. Per-capability tenant
+allowlists and role policy are G2.
+
+Authentication errors use the public error shape and include
+`WWW-Authenticate: Bearer`:
+
+```json
+{
+  "error": {
+    "code": "auth_required",
+    "message": "Authentication is required.",
+    "details": {}
+  }
+}
+```
+
 ## GET /health
 
 返回服务健康状态。

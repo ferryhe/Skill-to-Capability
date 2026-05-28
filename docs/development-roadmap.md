@@ -723,6 +723,8 @@ git diff --check
 
 ### PR G1：Token auth 和 tenant identity
 
+**状态：完成（当前 G1 implementation branch，未声明已合并）**
+
 **范围**
 - API token auth。
 - user/tenant context。
@@ -738,6 +740,8 @@ gateway/tests/test_auth.py
 **验收**
 - 无 token 不能访问 protected capabilities。
 - dev mode 行为显式可见，不默认生产开启。
+- protected task endpoints 同样需要 token。
+- 本 PR 不实现 G2 tenant allowlist / role policy。
 
 ### PR G2：Capability policy
 

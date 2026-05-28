@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from .errors import api_error
+from ..auth.dependencies import require_request_identity
+from ..auth.models import RequestIdentity
 from ..security.output_filter import filter_capability_run_result
 from ..tasks.models import CapabilityTaskStatus
 from ..tasks.store import TaskRecord, task_store
@@ -9,7 +11,10 @@ router = APIRouter(prefix="/v1/tasks")
 
 
 @router.get("/{task_id}")
-def get_task_status(task_id: str) -> dict:
+def get_task_status(
+    task_id: str,
+    _identity: RequestIdentity = Depends(require_request_identity),
+) -> dict:
     task = _get_task_or_404(task_id)
     return CapabilityTaskStatus(
         task_id=task.task_id,
@@ -21,7 +26,10 @@ def get_task_status(task_id: str) -> dict:
 
 
 @router.get("/{task_id}/result")
-def get_task_result(task_id: str) -> dict:
+def get_task_result(
+    task_id: str,
+    _identity: RequestIdentity = Depends(require_request_identity),
+) -> dict:
     task = _get_task_or_404(task_id)
     if task.status in {"queued", "running"}:
         raise api_error(
@@ -55,7 +63,10 @@ def get_task_result(task_id: str) -> dict:
 
 
 @router.post("/{task_id}/cancel")
-def cancel_task(task_id: str) -> dict:
+def cancel_task(
+    task_id: str,
+    _identity: RequestIdentity = Depends(require_request_identity),
+) -> dict:
     task = _get_task_or_404(task_id)
     if task.status not in {"queued", "running"}:
         raise _task_not_cancellable()
